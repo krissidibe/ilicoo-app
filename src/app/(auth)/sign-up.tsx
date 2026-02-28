@@ -13,6 +13,7 @@ import CountryCodeSheet, {
   type CountryCodeSheetRef,
 } from "@/src/data/countryCodeSheet";
 import { countryCodes, type CountryCode } from "@/src/data/countryCodes";
+import { authClient } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -77,6 +78,7 @@ const SignUp = () => {
     handleSubmit,
     setValue,
     trigger,
+    getValues,
     formState: { errors },
   } = useForm<SignUpSchema>({
     resolver: zodResolver(signUpSchema),
@@ -142,13 +144,26 @@ const SignUp = () => {
     void trigger("gender");
   };
 
-  const handleVerifyOtp = (): void => {
+  const handleVerifyOtp = async (): Promise<void> => {
     if (otpTimer <= 0) {
       setOtpMessage("Le code a expiré. Renvoyez un code OTP.");
       return;
     }
     if (otpValue === DEFAULT_OTP_CODE) {
-      setOtpMessage("OTP validé avec succès.");
+      const response = await authClient.signUp.email({
+        email: getValues("email"),
+        name: getValues("name"),
+        phoneNumber: getValues("phoneNumber"),
+        phoneDialCode: getValues("phoneDialCode"),
+        gender: getValues("gender"),
+        country: selectedCountry.code,
+        password: "password",
+      });
+      console.log(response);
+      setTimeout(() => {
+        router.push("/(tabs)");
+        setOtpMessage("OTP validé avec succès.");
+      }, 1500);
       return;
     }
     setOtpMessage("Code OTP incorrect.");

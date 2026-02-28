@@ -11,6 +11,7 @@ export const authClient = createAuthClient({
         phoneDialCode: { type: "string", required: true }, // Match the type and required status
         phoneNumber: { type: "string", required: true },
         country: { type: "string", required: true },
+        gender: { type: "string", required: true },
       },
     }),
     expoClient({
