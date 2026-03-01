@@ -1,11 +1,21 @@
+import { Button } from "@/src/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/src/components/ui/card";
+import { Input } from "@/src/components/ui/input";
+import { Text } from "@/src/components/ui/text";
+import { cn } from "@/src/lib/utils";
+import { otherDriversRoutes, type OtherDriverRoute } from "@/src/data/otherDriversRoutes";
+import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
 import {
-  ActivityIndicator,
   Linking,
   Modal,
   Platform,
@@ -20,12 +30,6 @@ import MapView, {
   type MapPressEvent,
 } from "react-native-maps";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Button } from "@/src/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card";
-import { Input } from "@/src/components/ui/input";
-import { Text } from "@/src/components/ui/text";
-import { cn } from "@/src/lib/utils";
-import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 
 type PointField = "depart" | "arrivee";
 type FormStep = 1 | 2 | 3;
@@ -52,12 +56,32 @@ const defaultRegion = {
 };
 
 const quartiers: Quartier[] = [
-  { id: "hamdallaye", name: "Hamdallaye", latitude: 12.6337, longitude: -8.0059 },
+  {
+    id: "hamdallaye",
+    name: "Hamdallaye",
+    latitude: 12.6337,
+    longitude: -8.0059,
+  },
   { id: "aci2000", name: "ACI 2000", latitude: 12.6201, longitude: -8.0264 },
-  { id: "badalabougou", name: "Badalabougou", latitude: 12.6333, longitude: -7.9833 },
+  {
+    id: "badalabougou",
+    name: "Badalabougou",
+    latitude: 12.6333,
+    longitude: -7.9833,
+  },
   { id: "sogoniko", name: "Sogoniko", latitude: 12.5987, longitude: -8.0099 },
-  { id: "lafiabougou", name: "Lafiabougou", latitude: 12.6743, longitude: -8.0098 },
-  { id: "kalaban", name: "Kalaban Coura", latitude: 12.5658, longitude: -7.9896 },
+  {
+    id: "lafiabougou",
+    name: "Lafiabougou",
+    latitude: 12.6743,
+    longitude: -8.0098,
+  },
+  {
+    id: "kalaban",
+    name: "Kalaban Coura",
+    latitude: 12.5658,
+    longitude: -7.9896,
+  },
   { id: "niamakoro", name: "Niamakoro", latitude: 12.5854, longitude: -7.9502 },
 ];
 
@@ -85,12 +109,15 @@ const estimatePrice = (distance: number): number => {
 };
 
 const SearchRoute = () => {
-  const { open, close } = useBottomSheetStore();
   const mapRef = React.useRef<MapView>(null);
 
   const [step, setStep] = React.useState<FormStep>(1);
-  const [activeMapField, setActiveMapField] = React.useState<PointField | null>(null);
-  const [pendingPoint, setPendingPoint] = React.useState<RoutePoint | null>(null);
+  const [activeMapField, setActiveMapField] = React.useState<PointField | null>(
+    null,
+  );
+  const [pendingPoint, setPendingPoint] = React.useState<RoutePoint | null>(
+    null,
+  );
   const [quartierSearch, setQuartierSearch] = React.useState<string>("");
 
   const [departure, setDeparture] = React.useState<RoutePoint | null>(null);
@@ -99,15 +126,25 @@ const SearchRoute = () => {
 
   const [tripDateValue, setTripDateValue] = React.useState<Date | null>(null);
   const [tripTimeValue, setTripTimeValue] = React.useState<Date | null>(null);
-  const [pickerMode, setPickerMode] = React.useState<"date" | "time" | null>(null);
-  const [pickerTempValue, setPickerTempValue] = React.useState<Date>(new Date());
+  const [pickerMode, setPickerMode] = React.useState<"date" | "time" | null>(
+    null,
+  );
+  const [pickerTempValue, setPickerTempValue] = React.useState<Date>(
+    new Date(),
+  );
 
-  const [currentLocation, setCurrentLocation] = React.useState<LatLng | null>(null);
+  const [currentLocation, setCurrentLocation] = React.useState<LatLng | null>(
+    null,
+  );
   const [seats, setSeats] = React.useState<string>("");
 
   const [distanceKm, setDistanceKm] = React.useState<string>("0");
   const [durationMin, setDurationMin] = React.useState<number>(0);
-  const [isLoadingRoute, setIsLoadingRoute] = React.useState<boolean>(false);
+  const [, setIsLoadingRoute] = React.useState<boolean>(false);
+  const [showMapResults, setShowMapResults] = React.useState<boolean>(false);
+  const [selectedDriverId, setSelectedDriverId] = React.useState<
+    "mine" | string
+  >("mine");
 
   const filteredQuartiers = React.useMemo(() => {
     const searchValue = quartierSearch.trim().toLowerCase();
@@ -116,7 +153,8 @@ const SearchRoute = () => {
   }, [quartierSearch]);
 
   const canGoStep2 = Boolean(departure) && Boolean(arrival);
-  const canGoStep3 = canGoStep2 && Boolean(tripDateValue) && Boolean(tripTimeValue);
+  const canGoStep3 =
+    canGoStep2 && Boolean(tripDateValue) && Boolean(tripTimeValue);
   const seatsValid = Number(seats) >= 1 && Number(seats) <= 6;
   const canSubmit = canGoStep3 && seatsValid;
 
@@ -135,7 +173,10 @@ const SearchRoute = () => {
     }
   };
 
-  const calculateRoute = async (fromPoint: RoutePoint, toPoint: RoutePoint): Promise<void> => {
+  const calculateRoute = async (
+    fromPoint: RoutePoint,
+    toPoint: RoutePoint,
+  ): Promise<void> => {
     try {
       setIsLoadingRoute(true);
       const routeUrl = `https://router.project-osrm.org/route/v1/driving/${fromPoint.longitude},${fromPoint.latitude};${toPoint.longitude},${toPoint.latitude}?overview=full&geometries=geojson`;
@@ -150,10 +191,12 @@ const SearchRoute = () => {
         return;
       }
 
-      const coords: LatLng[] = route.geometry.coordinates.map((p: number[]) => ({
-        latitude: p[1],
-        longitude: p[0],
-      }));
+      const coords: LatLng[] = route.geometry.coordinates.map(
+        (p: number[]) => ({
+          latitude: p[1],
+          longitude: p[0],
+        }),
+      );
       setRouteCoordinates(coords);
       setDistanceKm((route.distance / 1000).toFixed(2));
       setDurationMin(Math.round(route.duration / 60));
@@ -180,8 +223,10 @@ const SearchRoute = () => {
 
     setPendingPoint(nextPoint);
 
-    if (activeMapField === "depart" && arrival) await calculateRoute(nextPoint, arrival);
-    if (activeMapField === "arrivee" && departure) await calculateRoute(departure, nextPoint);
+    if (activeMapField === "depart" && arrival)
+      await calculateRoute(nextPoint, arrival);
+    if (activeMapField === "arrivee" && departure)
+      await calculateRoute(departure, nextPoint);
   };
 
   const applyCurrentLocation = async (): Promise<void> => {
@@ -194,18 +239,26 @@ const SearchRoute = () => {
     const nextPoint: RoutePoint = {
       latitude: currentLocation.latitude,
       longitude: currentLocation.longitude,
-      label: formatPointLabel(currentLocation.latitude, currentLocation.longitude),
+      label: formatPointLabel(
+        currentLocation.latitude,
+        currentLocation.longitude,
+      ),
       address,
     };
 
     setPendingPoint(nextPoint);
 
-    if (activeMapField === "depart" && arrival) await calculateRoute(nextPoint, arrival);
-    if (activeMapField === "arrivee" && departure) await calculateRoute(departure, nextPoint);
+    if (activeMapField === "depart" && arrival)
+      await calculateRoute(nextPoint, arrival);
+    if (activeMapField === "arrivee" && departure)
+      await calculateRoute(departure, nextPoint);
   };
 
   const setPointFromQuartier = async (quartier: Quartier): Promise<void> => {
-    const address = await getAddressFromCoordinates(quartier.latitude, quartier.longitude);
+    const address = await getAddressFromCoordinates(
+      quartier.latitude,
+      quartier.longitude,
+    );
     const nextPoint: RoutePoint = {
       latitude: quartier.latitude,
       longitude: quartier.longitude,
@@ -214,8 +267,10 @@ const SearchRoute = () => {
     };
 
     setPendingPoint(nextPoint);
-    if (activeMapField === "depart" && arrival) await calculateRoute(nextPoint, arrival);
-    if (activeMapField === "arrivee" && departure) await calculateRoute(departure, nextPoint);
+    if (activeMapField === "depart" && arrival)
+      await calculateRoute(nextPoint, arrival);
+    if (activeMapField === "arrivee" && departure)
+      await calculateRoute(departure, nextPoint);
 
     mapRef.current?.animateToRegion({
       latitude: quartier.latitude,
@@ -258,13 +313,6 @@ const SearchRoute = () => {
     if (departure && arrival) await calculateRoute(departure, arrival);
   };
 
-  const openAppleMaps = async (): Promise<void> => {
-    if (!departure || !arrival) return;
-    const mapsUrl = `http://maps.apple.com/?saddr=${departure.latitude},${departure.longitude}&daddr=${arrival.latitude},${arrival.longitude}&dirflg=d`;
-    const canOpen = await Linking.canOpenURL(mapsUrl);
-    if (canOpen) await Linking.openURL(mapsUrl);
-  };
-
   const resetForm = (): void => {
     setStep(1);
     setDeparture(null);
@@ -277,7 +325,10 @@ const SearchRoute = () => {
     setDurationMin(0);
   };
 
-  const onPickerChange = (event: DateTimePickerEvent, selected?: Date): void => {
+  const onPickerChange = (
+    event: DateTimePickerEvent,
+    selected?: Date,
+  ): void => {
     if (event.type === "dismissed") return;
     if (selected) setPickerTempValue(selected);
   };
@@ -298,59 +349,273 @@ const SearchRoute = () => {
     setPickerMode(null);
   };
 
-  const openRecapModal = (): void => {
-    if (!departure || !arrival || !tripDateValue || !tripTimeValue || !canSubmit) return;
-
-    const estimatedPrice = estimatePrice(Number(distanceKm));
-
-    open(
-      <View className="px-5 pb-7 pt-2">
-        <Text className="text-xl font-bold text-foreground">Recapitulatif du trajet</Text>
-        <View className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
-          <Text className="text-xs text-muted-foreground">Depart</Text>
-          <Text className="text-sm font-semibold">{departure.address}</Text>
-          <Text className="mt-2 text-xs text-muted-foreground">Arrivee</Text>
-          <Text className="text-sm font-semibold">{arrival.address}</Text>
-          <View className="mt-3 flex-row items-center justify-between">
-            <Text className="text-sm">Date / Heure</Text>
-            <Text className="text-sm font-semibold">
-              {formatDate(tripDateValue)} - {formatTime(tripTimeValue)}
-            </Text>
-          </View>
-          <View className="mt-2 flex-row items-center justify-between">
-            <Text className="text-sm">Distance</Text>
-            <Text className="text-sm font-semibold">{distanceKm} km</Text>
-          </View>
-          <View className="mt-2 flex-row items-center justify-between">
-            <Text className="text-sm">Prix estime</Text>
-            <Text className="text-sm font-bold text-primary">
-              {estimatedPrice.toLocaleString("fr-FR")} FCFA
-            </Text>
-          </View>
-        </View>
-        <View className="mt-4 flex-row gap-2">
-          <Button variant="outline" className="flex-1 rounded-xl" onPress={close}>
-            <Text>Modifier</Text>
-          </Button>
-          <Button className="flex-1 rounded-xl" onPress={openAppleMaps}>
-            <Text>Ouvrir Plans</Text>
-          </Button>
-        </View>
-      </View>,
-      ["72%"],
-    );
-  };
-
   const previewDeparture =
     activeMapField === "depart" && pendingPoint ? pendingPoint : departure;
   const previewArrival =
     activeMapField === "arrivee" && pendingPoint ? pendingPoint : arrival;
 
+  const selectedDriver: OtherDriverRoute | null =
+    selectedDriverId === "mine"
+      ? null
+      : otherDriversRoutes.find((d) => d.id === selectedDriverId) ?? null;
+
+  const mapRegion = React.useMemo(() => {
+    const allLats: number[] = [];
+    const allLngs: number[] = [];
+    if (departure) {
+      allLats.push(departure.latitude);
+      allLngs.push(departure.longitude);
+    }
+    if (arrival) {
+      allLats.push(arrival.latitude);
+      allLngs.push(arrival.longitude);
+    }
+    if (selectedDriver) {
+      allLats.push(selectedDriver.pickupLat, selectedDriver.dropLat);
+      allLngs.push(selectedDriver.pickupLng, selectedDriver.dropLng);
+    }
+    if (allLats.length > 0 && allLngs.length > 0) {
+      const minLat = Math.min(...allLats);
+      const maxLat = Math.max(...allLats);
+      const minLng = Math.min(...allLngs);
+      const maxLng = Math.max(...allLngs);
+      return {
+        latitude: (minLat + maxLat) / 2,
+        longitude: (minLng + maxLng) / 2,
+        latitudeDelta: Math.max(0.05, (maxLat - minLat) * 1.5),
+        longitudeDelta: Math.max(0.05, (maxLng - minLng) * 1.5),
+      };
+    }
+    return defaultRegion;
+  }, [departure, arrival, selectedDriver]);
+
+  React.useEffect(() => {
+    if (showMapResults && mapRef.current) {
+      mapRef.current.animateToRegion(mapRegion, 400);
+    }
+  }, [selectedDriverId, showMapResults, mapRegion]);
+
+  if (showMapResults && departure && arrival) {
+    return (
+      <View className="flex-1 bg-background">
+        <View className="px-5 pb-4 bg-primary pt-safe">
+          <View className="flex-row justify-between items-center pt-3 mb-4">
+            <TouchableOpacity
+              onPress={() => {
+                setShowMapResults(false);
+              }}
+            >
+              <Ionicons name="chevron-back" size={24} color="white" />
+            </TouchableOpacity>
+            <Text className="text-lg font-bold text-white">
+              Résultats de recherche
+            </Text>
+            <View className="w-6" />
+          </View>
+        </View>
+
+        <View className="flex-1">
+          <MapView
+            ref={mapRef}
+            style={{ flex: 1 }}
+            initialRegion={mapRegion}
+            showsUserLocation
+          >
+            {/* Mon trajet - toujours affiché */}
+            {departure ? (
+              <Marker
+                coordinate={{
+                  latitude: departure.latitude,
+                  longitude: departure.longitude,
+                }}
+                title="Mon départ"
+                description={departure.address}
+                pinColor="#2563eb"
+              />
+            ) : null}
+            {arrival ? (
+              <Marker
+                coordinate={{
+                  latitude: arrival.latitude,
+                  longitude: arrival.longitude,
+                }}
+                title="Mon arrivée"
+                description={arrival.address}
+                pinColor="#e11d48"
+              />
+            ) : null}
+            {routeCoordinates.length > 1 ? (
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor="#0ea5e9"
+                strokeWidth={5}
+              />
+            ) : null}
+
+            {/* Trajet du chauffeur sélectionné (en plus du mien) */}
+            {selectedDriver ? (
+              <>
+                <Marker
+                  coordinate={{
+                    latitude: selectedDriver.pickupLat,
+                    longitude: selectedDriver.pickupLng,
+                  }}
+                  title={`Départ ${selectedDriver.driverName}`}
+                  description={selectedDriver.from}
+                  pinColor={selectedDriver.color}
+                />
+                <Marker
+                  coordinate={{
+                    latitude: selectedDriver.dropLat,
+                    longitude: selectedDriver.dropLng,
+                  }}
+                  title={`Arrivée ${selectedDriver.driverName}`}
+                  description={selectedDriver.to}
+                  pinColor={selectedDriver.color}
+                />
+                {selectedDriver.routeCoordinates.length > 1 ? (
+                  <Polyline
+                    coordinates={selectedDriver.routeCoordinates}
+                    strokeColor={selectedDriver.color}
+                    strokeWidth={4}
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </MapView>
+
+          <View className="absolute bottom-0 left-0 right-0 p-4 bg-white rounded-t-3xl border-t border-gray shadow-lg">
+            <Text className="text-sm font-semibold text-muted-foreground mb-3">
+              Choisir un trajet
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="gap-2"
+            >
+              <TouchableOpacity
+                onPress={() => setSelectedDriverId("mine")}
+                className={cn(
+                  "px-4 py-3 rounded-xl border-2 min-w-[120px]",
+                  selectedDriverId === "mine"
+                    ? "border-primary bg-primary/10"
+                    : "border-gray-200 bg-gray-50",
+                )}
+              >
+                <View className="flex-row items-center mb-1">
+                  <View className="p-1.5 rounded-full bg-primary/20">
+                    <Ionicons name="person" size={14} color="#6366f1" />
+                  </View>
+                  <Text
+                    className={cn(
+                      "ml-2 font-semibold text-sm",
+                      selectedDriverId === "mine"
+                        ? "text-primary"
+                        : "text-foreground",
+                    )}
+                  >
+                    Mon trajet
+                  </Text>
+                </View>
+                <Text className="text-xs text-muted-foreground" numberOfLines={1}>
+                  {departure?.address?.slice(0, 20)}...
+                </Text>
+                <Text className="text-xs font-bold text-emerald-600 mt-1">
+                  {estimatePrice(Number(distanceKm)).toLocaleString("fr-FR")} FCFA
+                </Text>
+              </TouchableOpacity>
+
+              {otherDriversRoutes.map((driver) => (
+                <TouchableOpacity
+                  key={driver.id}
+                  onPress={() => setSelectedDriverId(driver.id)}
+                  className={cn(
+                    "px-4 py-3 rounded-xl border-2 min-w-[120px]",
+                    selectedDriverId === driver.id
+                      ? "border-primary bg-primary/10"
+                      : "border-gray-200 bg-gray-50",
+                  )}
+                >
+                  <View className="flex-row items-center mb-1">
+                    <View
+                      className="p-1.5 rounded-full"
+                      style={{ backgroundColor: `${driver.color}20` }}
+                    >
+                      <Ionicons
+                        name="car-sport"
+                        size={14}
+                        color={driver.color}
+                      />
+                    </View>
+                    <Text
+                      className={cn(
+                        "ml-2 font-semibold text-sm",
+                        selectedDriverId === driver.id
+                          ? "text-primary"
+                          : "text-foreground",
+                      )}
+                      numberOfLines={1}
+                    >
+                      {driver.driverName}
+                    </Text>
+                  </View>
+                  <Text className="text-xs text-muted-foreground" numberOfLines={1}>
+                    {driver.from} → {driver.to}
+                  </Text>
+                  <View className="flex-row items-center justify-between mt-1">
+                    <Text className="text-xs font-bold text-emerald-600">
+                      {driver.price}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">
+                      {driver.driverRating}★
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              onPress={() => {
+                const from =
+                  selectedDriverId === "mine" && departure
+                    ? departure
+                    : selectedDriver
+                      ? {
+                          latitude: selectedDriver.pickupLat,
+                          longitude: selectedDriver.pickupLng,
+                        }
+                      : null;
+                const to =
+                  selectedDriverId === "mine" && arrival
+                    ? arrival
+                    : selectedDriver
+                      ? {
+                          latitude: selectedDriver.dropLat,
+                          longitude: selectedDriver.dropLng,
+                        }
+                      : null;
+                if (from && to) {
+                  const mapsUrl = `http://maps.apple.com/?saddr=${from.latitude},${from.longitude}&daddr=${to.latitude},${to.longitude}&dirflg=d`;
+                  void Linking.openURL(mapsUrl);
+                }
+              }}
+              className="mt-4 py-3 rounded-xl bg-primary"
+            >
+              <Text className="text-center font-semibold text-primary-foreground">
+                Ouvrir dans Plans
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   if (activeMapField) {
     return (
       <View className="flex-1 bg-background">
-        <View className="bg-primary px-5 pb-4 pt-safe">
-          <View className="mb-4 flex-row items-center justify-between pt-3">
+        <View className="px-5 pb-4 bg-primary pt-safe">
+          <View className="flex-row justify-between items-center pt-3 mb-4">
             <TouchableOpacity
               onPress={() => {
                 void closeMapPicker();
@@ -414,12 +679,16 @@ const SearchRoute = () => {
               />
             ) : null}
             {routeCoordinates.length > 1 ? (
-              <Polyline coordinates={routeCoordinates} strokeColor="#0ea5e9" strokeWidth={5} />
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor="#0ea5e9"
+                strokeWidth={5}
+              />
             ) : null}
           </MapView>
 
           <TouchableOpacity
-            className="absolute right-5 top-5 size-11 items-center justify-center rounded-full bg-white shadow-md shadow-black/10"
+            className="absolute top-5 right-5 justify-center items-center bg-white rounded-full shadow-md size-11 shadow-black/10"
             onPress={() => {
               if (!currentLocation) return;
               mapRef.current?.animateToRegion({
@@ -433,7 +702,7 @@ const SearchRoute = () => {
             <Ionicons name="locate-outline" size={20} color="#0f172a" />
           </TouchableOpacity>
 
-          <View className="absolute bottom-5 left-5 right-5 rounded-2xl border border-gray bg-white p-4 shadow-lg shadow-black/10">
+          <View className="absolute right-5 bottom-5 left-5 p-4 bg-white rounded-2xl border shadow-lg border-gray shadow-black/10">
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View className="flex-row gap-2">
                 {filteredQuartiers.map((quartier) => (
@@ -444,18 +713,22 @@ const SearchRoute = () => {
                       void setPointFromQuartier(quartier);
                     }}
                   >
-                    <Text className="text-xs font-semibold text-primary">{quartier.name}</Text>
+                    <Text className="text-xs font-semibold text-primary">
+                      {quartier.name}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </ScrollView>
-            <View className="mt-3 rounded-xl border border-gray p-3">
-              <Text className="text-xs text-muted-foreground">Point selectionne</Text>
+            <View className="p-3 mt-3 rounded-xl border border-gray">
+              <Text className="text-xs text-muted-foreground">
+                Point selectionne
+              </Text>
               <Text className="mt-1 text-sm font-semibold">
                 {pendingPoint?.address ?? "Aucun point selectionne"}
               </Text>
             </View>
-            <View className="mt-3 flex-row gap-2">
+            <View className="flex-row gap-2 mt-3">
               <Button
                 variant="outline"
                 className="flex-1 rounded-xl"
@@ -483,8 +756,8 @@ const SearchRoute = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <View className="bg-primary px-5 pb-5 pt-safe">
-        <View className="mb-4 flex-row items-center justify-between pt-3">
+      <View className="px-5 pb-5 bg-primary pt-safe">
+        <View className="flex-row justify-between items-center pt-3 mb-4">
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
@@ -502,7 +775,9 @@ const SearchRoute = () => {
           ].map((item) => {
             const active = step === item.id;
             const allowed =
-              item.id === 1 || (item.id === 2 && canGoStep2) || (item.id === 3 && canGoStep3);
+              item.id === 1 ||
+              (item.id === 2 && canGoStep2) ||
+              (item.id === 3 && canGoStep3);
             return (
               <TouchableOpacity
                 key={item.id}
@@ -521,7 +796,7 @@ const SearchRoute = () => {
                 />
                 <Text
                   className={cn(
-                    "ml-1 text-[11px] font-semibold",
+                    "ml-1 font-semibold text-[11px]",
                     active ? "text-slate-900" : "text-white",
                   )}
                 >
@@ -542,7 +817,7 @@ const SearchRoute = () => {
               </CardHeader>
               <CardContent className="gap-3">
                 <TouchableOpacity
-                  className="rounded-xl border border-gray p-3"
+                  className="p-3 rounded-xl border border-gray"
                   onPress={() => openMapPicker("depart")}
                 >
                   <Text className="text-xs text-muted-foreground">Depart</Text>
@@ -551,7 +826,7 @@ const SearchRoute = () => {
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  className="rounded-xl border border-gray p-3"
+                  className="p-3 rounded-xl border border-gray"
                   onPress={() => openMapPicker("arrivee")}
                 >
                   <Text className="text-xs text-muted-foreground">Arrivee</Text>
@@ -560,9 +835,13 @@ const SearchRoute = () => {
                   </Text>
                 </TouchableOpacity>
 
-                <View className="mt-2 flex-row items-center justify-between rounded-xl bg-primary/10 p-3">
-                  <Text className="text-sm font-semibold">Distance: {distanceKm} km</Text>
-                  <Text className="text-sm font-semibold">Duree: {durationMin} min</Text>
+                <View className="flex-row justify-between items-center p-3 mt-2 rounded-xl bg-primary/10">
+                  <Text className="text-sm font-semibold">
+                    Distance: {distanceKm} km
+                  </Text>
+                  <Text className="text-sm font-semibold">
+                    Duree: {durationMin} min
+                  </Text>
                 </View>
 
                 <Button
@@ -589,7 +868,11 @@ const SearchRoute = () => {
                   className="justify-between rounded-xl"
                   onPress={openDatePicker}
                 >
-                  <Text>{tripDateValue ? formatDate(tripDateValue) : "Choisir la date"}</Text>
+                  <Text>
+                    {tripDateValue
+                      ? formatDate(tripDateValue)
+                      : "Choisir la date"}
+                  </Text>
                   <Ionicons name="calendar-outline" size={16} color="#64748b" />
                 </Button>
 
@@ -598,11 +881,15 @@ const SearchRoute = () => {
                   className="justify-between rounded-xl"
                   onPress={openTimePicker}
                 >
-                  <Text>{tripTimeValue ? formatTime(tripTimeValue) : "Choisir l heure"}</Text>
+                  <Text>
+                    {tripTimeValue
+                      ? formatTime(tripTimeValue)
+                      : "Choisir l heure"}
+                  </Text>
                   <Ionicons name="time-outline" size={16} color="#64748b" />
                 </Button>
 
-                <View className="mt-2 flex-row gap-2">
+                <View className="flex-row gap-2 mt-2">
                   <Button
                     variant="outline"
                     className="flex-1 rounded-xl"
@@ -636,13 +923,14 @@ const SearchRoute = () => {
                   keyboardType="number-pad"
                   placeholder="Nombre de places (1-6)"
                 />
-                <View className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+                <View className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10">
                   <Text className="text-xs text-emerald-700">Prix estime</Text>
                   <Text className="text-lg font-bold text-emerald-700">
-                    {estimatePrice(Number(distanceKm)).toLocaleString("fr-FR")} FCFA
+                    {estimatePrice(Number(distanceKm)).toLocaleString("fr-FR")}{" "}
+                    FCFA
                   </Text>
                 </View>
-                <View className="mt-2 flex-row gap-2">
+                <View className="flex-row gap-2 mt-2">
                   <Button
                     variant="outline"
                     className="flex-1 rounded-xl"
@@ -650,8 +938,12 @@ const SearchRoute = () => {
                   >
                     <Text>Retour</Text>
                   </Button>
-                  <Button className="flex-1 rounded-xl" disabled={!canSubmit} onPress={openRecapModal}>
-                    <Text>Voir recap</Text>
+                  <Button
+                    className="flex-1 rounded-xl"
+                    disabled={!canSubmit}
+                    onPress={() => setShowMapResults(true)}
+                  >
+                    <Text>Chercher le trajet</Text>
                   </Button>
                 </View>
               </CardContent>
@@ -665,9 +957,9 @@ const SearchRoute = () => {
       </ScrollView>
 
       <Modal transparent visible={pickerMode !== null} animationType="fade">
-        <View className="flex-1 items-center justify-center bg-black/40 px-6">
-          <View className="w-full max-w-md rounded-2xl bg-white p-4">
-            <Text className="mb-2 text-center text-base font-semibold">
+        <View className="flex-1 justify-center items-center px-6 bg-black/40">
+          <View className="p-4 w-full max-w-md bg-white rounded-2xl">
+            <Text className="mb-2 text-base font-semibold text-center">
               {pickerMode === "date" ? "Choisir la date" : "Choisir l heure"}
             </Text>
             <DateTimePicker
@@ -677,7 +969,7 @@ const SearchRoute = () => {
               is24Hour
               display={Platform.OS === "ios" ? "spinner" : "default"}
             />
-            <View className="mt-3 flex-row gap-2">
+            <View className="flex-row gap-2 mt-3">
               <Button
                 variant="outline"
                 className="flex-1 rounded-xl"
@@ -685,7 +977,10 @@ const SearchRoute = () => {
               >
                 <Text>Annuler</Text>
               </Button>
-              <Button className="flex-1 rounded-xl" onPress={confirmPickerSelection}>
+              <Button
+                className="flex-1 rounded-xl"
+                onPress={confirmPickerSelection}
+              >
                 <Text>Valider</Text>
               </Button>
             </View>

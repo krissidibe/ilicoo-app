@@ -19,6 +19,7 @@ export const apiFetch = async (endPoint: string, options: RequestInit = {}) => {
     ...options,
   });
   if (!response.ok) {
+    console.log("endPoint", response.ok);
     let errorMessage = `API Error: ${response.status}`;
     try {
       const errorData = await response.json();

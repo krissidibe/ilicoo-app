@@ -5,9 +5,11 @@ import CountryCodeSheet, {
   type CountryCodeSheetRef,
 } from "@/src/data/countryCodeSheet";
 import { countryCodes, type CountryCode } from "@/src/data/countryCodes";
+import { authClient } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
 import { Ionicons } from "@expo/vector-icons";
 import { Label } from "@react-navigation/elements";
+import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -155,9 +157,43 @@ const SignIn = () => {
                   className="focus:border-primary"
                 />
               </View>
-              <Button size="lg" className="mt-2 w-full">
+              {otpMessage.length > 0 && (
+                <Text
+                  className={cn(
+                    "text-sm",
+                    otpMessage.includes("succès")
+                      ? "text-green-600"
+                      : "text-red-500",
+                  )}
+                >
+                  {otpMessage}
+                </Text>
+              )}
+              <Button
+                onPress={async () => {
+                  if (
+                    email.trim().length === 0 ||
+                    password.trim().length === 0
+                  ) {
+                    setOtpMessage(
+                      "Veuillez entrer un email et un mot de passe",
+                    );
+                    return;
+                  }
+                  const response = await authClient.signIn.email({
+                    email: email,
+                    password: password,
+                  });
+                  console.log(response);
+                  setOtpMessage("");
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(tabs)");
+                }}
+                size="lg"
+                className="mt-2 w-full"
+              >
                 <Text className="text-base font-bold text-primary-foreground">
-                  Continuer
+                  Se connecter
                 </Text>
               </Button>
             </Animated.View>
@@ -176,7 +212,7 @@ const SignIn = () => {
                     onPress={() => countryCodeSheetRef.current?.open()}
                   >
                     <Input
-                      editable={false}
+                      onTouchStart={() => countryCodeSheetRef.current?.open()}
                       value={`${selectedCountry.flag} ${selectedCountry.dial}`}
                       className="w-[120px]"
                     />
