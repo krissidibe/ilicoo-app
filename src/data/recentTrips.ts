@@ -1,4 +1,4 @@
-export type TripStatus = "Termine" | "Annule" | "En attente";
+export type TripStatus = "Termine" | "Annule" | "En attente" | "En cours";
 
 export type DriverInfo = {
   name: string;
@@ -6,14 +6,40 @@ export type DriverInfo = {
   rating: number;
 };
 
+export type PassengerStatusUi = "En attente" | "Confirmé" | "Refusé" | "Annulé" | "Terminé";
+
+export type MyPassengerInfo = {
+  from: string;
+  to: string;
+  date: string;
+  time: string;
+  price: string;
+  passengerStatus: PassengerStatusUi;
+  pickupLat?: number;
+  pickupLng?: number;
+  dropLat?: number;
+  dropLng?: number;
+};
+
 export type RecentTrip = {
-  id: number;
+  id: string | number;
+  routePassengerId?: string;
   from: string;
   to: string;
   date: string;
   price: string;
   status: TripStatus;
   driver?: DriverInfo;
+  pickupLat?: number;
+  pickupLng?: number;
+  dropLat?: number;
+  dropLng?: number;
+  /** Infos du passager (moi) si différentes du trajet chauffeur */
+  myPassengerInfo?: MyPassengerInfo;
+  /** Autres passagers (nom uniquement) */
+  otherPassengerNames?: string[];
+  /** Peut annuler (PENDING ou ACCEPTED) */
+  canCancel?: boolean;
 };
 
 export const recentTrips: RecentTrip[] = [

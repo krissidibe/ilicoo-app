@@ -18,6 +18,11 @@ export type PassengerRequest = {
   pickupLng?: number;
   dropLat?: number;
   dropLng?: number;
+  pickupAddress?: string;
+  dropAddress?: string;
+  date?: string;
+  time?: string;
+  price?: string;
   routeCoordinates?: { latitude: number; longitude: number }[];
 };
 

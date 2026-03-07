@@ -6,10 +6,14 @@ import {
 } from "@/src/components/ui/avatar";
 import { Text } from "@/src/components/ui/text";
 import { authClient } from "@/src/lib/auth-client";
+import { useAuthStore } from "@/src/store/auth.store";
+import { getUser } from "@/src/services/user.service";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React from "react";
-import { ScrollView, Switch, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, Switch, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 type SettingItemProps = {
@@ -59,6 +63,7 @@ const Setting = () => {
   const [pushEnabled, setPushEnabled] = React.useState<boolean>(true);
   const [locationEnabled, setLocationEnabled] = React.useState<boolean>(true);
   const [darkMode, setDarkMode] = React.useState<boolean>(false);
+  const { data: user, isLoading } = useQuery(getUser());
 
   return (
     <View className="flex-1 bg-background">
@@ -75,26 +80,38 @@ const Setting = () => {
           className="overflow-hidden p-5 mb-6 rounded-3xl border border-gray-100 shadow-sm"
         >
           <View className="flex-row items-center">
-            <Avatar
-              className="rounded-2xl border-2 size-16 border-white/30"
-              alt="Aboubacar"
-            >
-              <AvatarImage
-                source={{ uri: "https://i.pravatar.cc/150?img=33" }}
-              />
-              <AvatarFallback>
-                <Text className="text-xl font-bold">AD</Text>
-              </AvatarFallback>
-            </Avatar>
-            <View className="flex-1 ml-4">
-              <Text className="text-lg font-bold">Aboubacar Diallo</Text>
-              <Text className="text-sm mt-0.5">aboubacar@gmail.com</Text>
-              <TouchableOpacity className="self-start px-4 py-2 mt-3 rounded-xl shadow-sm bg-primary">
-                <Text className="text-sm font-semibold text-white">
-                  Modifier le profil
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#6366f1" />
+            ) : (
+              <>
+                <Avatar
+                  className="rounded-2xl border-2 size-16 border-white/30"
+                  alt={user?.name ?? "User"}
+                >
+                  <AvatarImage source={{ uri: user?.image ?? undefined }} />
+                  <AvatarFallback>
+                    <Text className="text-xl font-bold">
+                      {user?.name?.slice(0, 2).toUpperCase() ?? "U"}
+                    </Text>
+                  </AvatarFallback>
+                </Avatar>
+                <View className="flex-1 ml-4">
+                  <Text className="text-lg font-bold">{user?.name ?? "Utilisateur"}</Text>
+                  <Text className="text-sm mt-0.5">{user?.email ?? ""}</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push("/(stack)/edit-profile" as any);
+                    }}
+                    className="self-start px-4 py-2 mt-3 rounded-xl shadow-sm bg-primary"
+                  >
+                    <Text className="text-sm font-semibold text-white">
+                      Modifier le profil
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </Animated.View>
 
@@ -114,6 +131,10 @@ const Setting = () => {
                 icon="person-circle-outline"
                 title="Informations personnelles"
                 subtitle="Nom, email, téléphone"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(stack)/edit-profile" as any);
+                }}
               />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(100).duration(350)}>
@@ -121,6 +142,10 @@ const Setting = () => {
                 icon="car-sport-outline"
                 title="Mes véhicules"
                 subtitle="Ajouter ou modifier vos véhicules"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(stack)/manage-vehicle" as any);
+                }}
               />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(150).duration(350)}>
@@ -128,6 +153,10 @@ const Setting = () => {
                 icon="card-outline"
                 title="Méthode de paiement"
                 subtitle="Carte bancaire et mobile money"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(stack)/payment" as any);
+                }}
               />
             </Animated.View>
           </View>
@@ -147,6 +176,17 @@ const Setting = () => {
             <Animated.View entering={FadeInDown.delay(200).duration(350)}>
               <SettingItem
                 icon="notifications-outline"
+                title="Notifications"
+                subtitle="Voir toutes vos notifications"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(stack)/notifications" as any);
+                }}
+              />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(220).duration(350)}>
+              <SettingItem
+                icon="bell-ring-outline"
                 title="Notifications push"
                 subtitle="Recevoir des alertes de trajet"
                 rightNode={
@@ -159,7 +199,7 @@ const Setting = () => {
                 }
               />
             </Animated.View>
-            <Animated.View entering={FadeInDown.delay(250).duration(350)}>
+            <Animated.View entering={FadeInDown.delay(270).duration(350)}>
               <SettingItem
                 icon="location-outline"
                 title="Partage de position"
@@ -174,7 +214,7 @@ const Setting = () => {
                 }
               />
             </Animated.View>
-            <Animated.View entering={FadeInDown.delay(300).duration(350)}>
+            <Animated.View entering={FadeInDown.delay(320).duration(350)}>
               <SettingItem
                 icon="moon-outline"
                 title="Mode sombre"
@@ -208,6 +248,10 @@ const Setting = () => {
                 icon="help-circle-outline"
                 title="Centre d'aide"
                 subtitle="FAQ et assistance"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(stack)/help-center" as any);
+                }}
               />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(400).duration(350)}>
@@ -215,6 +259,10 @@ const Setting = () => {
                 icon="shield-checkmark-outline"
                 title="Confidentialité"
                 subtitle="Sécurité et protection des données"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(stack)/privacy" as any);
+                }}
               />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(450).duration(350)}>
@@ -222,6 +270,10 @@ const Setting = () => {
                 icon="document-text-outline"
                 title="Conditions d'utilisation"
                 subtitle="Règles et informations légales"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(stack)/terms" as any);
+                }}
               />
             </Animated.View>
           </View>
@@ -230,11 +282,10 @@ const Setting = () => {
         <Animated.View entering={FadeInDown.delay(500).duration(350)}>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => {
-              authClient.signOut();
-              setTimeout(() => {
-                router.push("/");
-              }, 1000);
+            onPress={async () => {
+              await authClient.signOut();
+              useAuthStore.getState().triggerAuthRefresh();
+              router.replace("/" as any);
             }}
             className="flex-row justify-center items-center px-4 py-3 rounded-xl border border-destructive/30 bg-destructive/5"
           >

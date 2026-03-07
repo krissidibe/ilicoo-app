@@ -1,9 +1,8 @@
 import { Text } from "@/src/components/ui/text";
-import {
-  recentTrips,
-  type RecentTrip,
-  type TripStatus,
-} from "@/src/data/recentTrips";
+import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
+import { getRoutePassengers } from "@/src/services/routePassenger.service";
+import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/src/lib/utils";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -12,16 +11,16 @@ import React from "react";
 import { Linking, ScrollView, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
-type TripTab = "Termine" | "Annule" | "En attente";
+type TripTab = "Termine" | "Annule" | "En attente" | "En cours";
 
-const tabs: TripTab[] = ["Termine", "Annule", "En attente"];
+const tabs: TripTab[] = ["Termine", "En cours", "En attente", "Annule"];
 
 const statusConfig = (
   status: TripStatus,
 ): {
   statusColor: string;
   statusIconColor: string;
-  icon: "check-circle-outline" | "close-circle-outline" | "timer-outline";
+  icon: "check-circle-outline" | "close-circle-outline" | "timer-outline" | "car-outline";
 } => {
   if (status === "Termine") {
     return {
@@ -39,6 +38,14 @@ const statusConfig = (
     };
   }
 
+  if (status === "En cours") {
+    return {
+      statusColor: "bg-blue-500/15 text-blue-600",
+      statusIconColor: "#2563eb",
+      icon: "car-outline",
+    };
+  }
+
   return {
     statusColor: "bg-amber-500/15 text-amber-600",
     statusIconColor: "#d97706",
@@ -49,6 +56,11 @@ const statusConfig = (
 const RecentTripsScreen = () => {
   const [activeTab, setActiveTab] = React.useState<TripTab>("Termine");
   const { open } = useBottomSheetStore();
+  const { data: routePassengersData, isLoading } = useQuery(getRoutePassengers());
+  const allTrips: RecentTrip[] = (routePassengersData ?? []).map(mapRoutePassengerToRecentTrip);
+  const filteredTrips = React.useMemo(() => {
+    return allTrips.filter((trip) => trip.status === activeTab);
+  }, [allTrips, activeTab]);
 
   const callDriver = async (phone: string): Promise<void> => {
     const phoneUrl = `tel:${phone}`;
@@ -59,9 +71,6 @@ const RecentTripsScreen = () => {
     }
   };
 
-  const filteredTrips = React.useMemo(() => {
-    return recentTrips.filter((trip) => trip.status === activeTab);
-  }, [activeTab]);
 
   const openTripDetails = (trip: RecentTrip): void => {
     const statusStyle = statusConfig(trip.status);
@@ -217,7 +226,16 @@ const RecentTripsScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <View className="gap-3">
-          {filteredTrips.map((trip, index) => {
+          {isLoading ? (
+            <View className="py-8 items-center">
+              <Text className="text-muted-foreground">Chargement...</Text>
+            </View>
+          ) : filteredTrips.length === 0 ? (
+            <View className="py-8 items-center">
+              <Text className="text-muted-foreground">Aucun trajet {activeTab.toLowerCase()}</Text>
+            </View>
+          ) : (
+          filteredTrips.map((trip, index) => {
             const statusStyle = statusConfig(trip.status);
 
             return (
@@ -311,7 +329,8 @@ const RecentTripsScreen = () => {
                 </TouchableOpacity>
               </Animated.View>
             );
-          })}
+          })
+          )}
         </View>
       </ScrollView>
     </View>

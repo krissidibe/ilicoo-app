@@ -11,17 +11,24 @@ import AppBottomSheet from "../components/Sheet/AppBottomSheet";
 import "../global.css";
 import { getUser } from "../lib/get-user";
 import { NAV_THEME } from "../lib/theme";
+import { useAuthStore } from "../store/auth.store";
+
 export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const refreshTrigger = useAuthStore((s) => s.refreshTrigger);
+
   useEffect(() => {
     (async () => {
       const user = await getUser();
-      if (user?.id) {
-        router.push("/(tabs)");
+      const authenticated = Boolean(user?.id);
+      setIsAuthenticated(authenticated);
+      if (authenticated) {
+        router.replace("/(tabs)" as any);
+      } else {
+        router.replace("/" as any);
       }
-      setIsAuthenticated(user?.id ? true : false);
     })();
-  }, []);
+  }, [refreshTrigger]);
 
   const { theme } = useUniwind();
   Uniwind.setTheme("light");

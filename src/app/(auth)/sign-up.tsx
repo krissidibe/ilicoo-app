@@ -15,6 +15,7 @@ import CountryCodeSheet, {
 import { countryCodes, type CountryCode } from "@/src/data/countryCodes";
 import { authClient } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
+import { useAuthStore } from "@/src/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Label } from "@react-navigation/elements";
@@ -159,11 +160,13 @@ const SignUp = () => {
         country: selectedCountry.code,
         password: "password",
       });
-      console.log(response);
-      setTimeout(() => {
-        router.push("/(tabs)");
-        setOtpMessage("OTP validé avec succès.");
-      }, 1500);
+      if (response?.error) {
+        setOtpMessage(response.error.message ?? "Erreur lors de l'inscription");
+        return;
+      }
+      setOtpMessage("OTP validé avec succès.");
+      useAuthStore.getState().triggerAuthRefresh();
+      router.replace("/(tabs)" as any);
       return;
     }
     setOtpMessage("Code OTP incorrect.");

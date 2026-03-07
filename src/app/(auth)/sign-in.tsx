@@ -7,6 +7,7 @@ import CountryCodeSheet, {
 import { countryCodes, type CountryCode } from "@/src/data/countryCodes";
 import { authClient } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
+import { useAuthStore } from "@/src/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { Label } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
@@ -87,7 +88,8 @@ const SignIn = () => {
       return;
     }
     if (otpValue === DEFAULT_OTP_CODE) {
-      router.push("/(tabs)");
+      useAuthStore.getState().triggerAuthRefresh();
+      router.replace("/(tabs)" as any);
       setOtpMessage("OTP validé avec succès.");
       return;
     }
@@ -184,10 +186,14 @@ const SignIn = () => {
                     email: email,
                     password: password,
                   });
-                  console.log(response);
+                  if (response?.error) {
+                    setOtpMessage(response.error.message ?? "Erreur de connexion");
+                    return;
+                  }
                   setOtpMessage("");
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push("/(tabs)");
+                  useAuthStore.getState().triggerAuthRefresh();
+                  router.replace("/(tabs)" as any);
                 }}
                 size="lg"
                 className="mt-2 w-full"
