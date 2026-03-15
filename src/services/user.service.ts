@@ -24,6 +24,10 @@ export type UpdateProfilePayload = {
   phoneDialCode?: string;
   country?: string;
   gender?: "male" | "female";
+  permitNumber?: string | null;
+  permitPhoto?: string | null;
+  permitPhotoBack?: string | null;
+  identityPhoto?: string | null;
 };
 
 export const updateProfile = async (

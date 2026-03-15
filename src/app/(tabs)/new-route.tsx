@@ -1,4 +1,5 @@
 import { RoutePolyline } from "@/src/components/Map/RoutePolyline";
+import StarRating from "@/src/components/StarRating";
 import {
   Avatar,
   AvatarFallback,
@@ -13,6 +14,7 @@ import type {
 import { mapRouteToMyPublishedTrip, mapVehicleToUi } from "@/src/lib/mappers";
 import { cn } from "@/src/lib/utils";
 import { queryKeys } from "@/src/services/queryKeys";
+import { createRating } from "@/src/services/rating.service";
 import {
   getDriverStats,
   getMyRoutes,
@@ -106,7 +108,16 @@ const TripSheetContent = ({
 }: TripSheetContentProps) => {
   const { close, expandedPassengerId, setExpandedPassengerId } =
     useBottomSheetStore();
-  const { data: routesData } = useQuery(getMyRoutes());
+  const [ratedPassengers, setRatedPassengers] = React.useState<Set<string>>(
+    new Set(),
+  );
+  const ratingMutation = useMutation({
+    mutationFn: createRating,
+  });
+  const { data: routesData } = useQuery({
+    ...getMyRoutes(),
+    refetchInterval: 5000,
+  });
   const trip: MyPublishedTrip | undefined = React.useMemo(() => {
     const route = (routesData ?? []).find((r) => r.id === tripId);
     return route ? mapRouteToMyPublishedTrip(route) : undefined;
@@ -412,8 +423,9 @@ const TripSheetContent = ({
             size={16}
             color="#9ca3af"
           />
+          {/* /{trip.totalSeats}  */}
           <Text className="ml-1 text-xs text-muted-foreground">
-            {trip.vehicleName} • {trip.availableSeats}/{trip.totalSeats} places
+            {trip.vehicleName} • {trip.availableSeats} places disponible
           </Text>
         </View>
       </View>
@@ -514,6 +526,39 @@ const TripSheetContent = ({
           </View>
         </View>
       )}
+
+      {trip.status === "Termine" && acceptedPassengers.length > 0 && (
+        <View className="p-4 mt-4 bg-amber-50 rounded-2xl border border-amber-200">
+          <Text className="mb-3 text-xs font-semibold tracking-wide text-amber-700 uppercase">
+            Noter les passagers
+          </Text>
+          {acceptedPassengers
+            .filter((p) => p.userId)
+            .map((p) => (
+              <View
+                key={p.id}
+                className="flex-row justify-between items-center mb-3"
+              >
+                <Text className="text-sm font-medium text-foreground">
+                  {p.name}
+                </Text>
+                <StarRating
+                  rating={0}
+                  size={22}
+                  editable={!ratedPassengers.has(p.id)}
+                  onChange={(stars) => {
+                    setRatedPassengers((prev) => new Set(prev).add(p.id));
+                    ratingMutation.mutate({
+                      routeId: trip.id,
+                      toUserId: p.userId!,
+                      stars,
+                    });
+                  }}
+                />
+              </View>
+            ))}
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -523,11 +568,18 @@ const Setting = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("mes-trajets");
 
-  const { data: routesData, isLoading: isLoadingRoutes } =
-    useQuery(getMyRoutes());
-  const { data: vehiclesData, isLoading: isLoadingVehicles } =
-    useQuery(getVehicules());
-  const { data: driverStats } = useQuery(getDriverStats());
+  const { data: routesData, isLoading: isLoadingRoutes } = useQuery({
+    ...getMyRoutes(),
+    refetchInterval: 5000,
+  });
+  const { data: vehiclesData, isLoading: isLoadingVehicles } = useQuery({
+    ...getVehicules(),
+    refetchInterval: 5000,
+  });
+  const { data: driverStats } = useQuery({
+    ...getDriverStats(),
+    refetchInterval: 5000,
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -692,6 +744,16 @@ const Setting = () => {
             />
           </MapView>
         </View>
+        {passenger.distanceKm != null && (
+          <View className="px-5 py-3 border-t border-gray-200 bg-gray-50">
+            <View className="flex-row items-center">
+              <MaterialCommunityIcons name="map-marker-distance" size={16} color="#f97316" />
+              <Text className="ml-2 text-sm font-semibold text-orange-600">
+                Distance: {passenger.distanceKm.toFixed(1)} km
+              </Text>
+            </View>
+          </View>
+        )}
       </View>,
       ["50%"],
     );

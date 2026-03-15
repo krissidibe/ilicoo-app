@@ -18,6 +18,10 @@ export type UserApi = {
   phoneDialCode: string;
   country: string;
   gender: string;
+  permitNumber?: string | null;
+  permitPhoto?: string | null;
+  permitPhotoBack?: string | null;
+  identityPhoto?: string | null;
 };
 
 export type VehicleTypeApi = "CAR" | "MOTORCYCLE";

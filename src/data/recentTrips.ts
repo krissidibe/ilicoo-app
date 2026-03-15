@@ -1,6 +1,7 @@
 export type TripStatus = "Termine" | "Annule" | "En attente" | "En cours";
 
 export type DriverInfo = {
+  id?: string;
   name: string;
   phone: string;
   rating: number;
@@ -14,6 +15,7 @@ export type MyPassengerInfo = {
   date: string;
   time: string;
   price: string;
+  seats?: number;
   passengerStatus: PassengerStatusUi;
   pickupLat?: number;
   pickupLng?: number;
@@ -29,6 +31,7 @@ export type RecentTrip = {
   date: string;
   price: string;
   status: TripStatus;
+  distanceKm?: number;
   driver?: DriverInfo;
   pickupLat?: number;
   pickupLng?: number;

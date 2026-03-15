@@ -7,7 +7,7 @@ import {
 } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
 import { Text } from "@/src/components/ui/text";
-import { cn } from "@/src/lib/utils";
+import { cn, roundUpToNearest10 } from "@/src/lib/utils";
 import { createRoute } from "@/src/services/route.service";
 import { getVehicules } from "@/src/services/vehicle.service";
 import type { VehicleApi } from "@/src/types/api";
@@ -15,10 +15,13 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
+import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
+import Constants from "expo-constants";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React from "react";
 import {
+  Alert,
   Modal,
   Platform,
   ScrollView,
@@ -98,8 +101,30 @@ const formatDate = (d: Date) =>
   });
 const formatTime = (d: Date) =>
   d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-const estimatePrice = (distance: number) =>
-  Math.max(1500, Math.round(500 + distance * 325));
+
+/**
+ * Calcul dynamique du prix par km (identique au backend)
+ * Formule: base = max(100 - 10 * i, 10) où i = floor(distance / 10)
+ */
+const getPricePerKm = (distanceKm: number, passengers: number): number => {
+  if (distanceKm <= 0) return 0;
+
+  const i = Math.floor(distanceKm / 10);
+  const base = Math.max(100 - 10 * i, 10);
+
+  if (passengers <= 1) return base;
+  if (passengers === 2) return base * (1.15 + 0.1 * i);
+  if (passengers === 3) return base * (1.25 + 0.15 * i);
+  return base * (1.3 + 0.2 * i);
+};
+
+const estimatePrice = (distanceKm: number, passengers: number): number => {
+  const pricePerKm = getPricePerKm(distanceKm, passengers);
+  const rawTripPrice = pricePerKm * distanceKm;
+  const tripPrice = roundUpToNearest10(rawTripPrice);
+  const rawPricePerPassenger = tripPrice / Math.max(passengers, 1);
+  return roundUpToNearest10(rawPricePerPassenger);
+};
 
 const ShareRouteScreen = () => {
   const mapRef = React.useRef<MapView>(null);
@@ -131,6 +156,9 @@ const ShareRouteScreen = () => {
   const [durationMin, setDurationMin] = React.useState(0);
   const [isPublishing, setIsPublishing] = React.useState(false);
   const [vehiclePickerOpen, setVehiclePickerOpen] = React.useState(false);
+  const [vehicleIdsBeforeAdd, setVehicleIdsBeforeAdd] = React.useState<
+    string[] | null
+  >(null);
 
   const onPickerChange = React.useCallback(
     (_e: DateTimePickerEvent, date?: Date) => {
@@ -146,13 +174,22 @@ const ShareRouteScreen = () => {
   const maxSeats = selectedVehicle?.maximumPassenger ?? 4;
 
   React.useEffect(() => {
-    if (vehicles.length > 0 && !selectedVehicleId) {
-      const defaultVehicle = vehicles.find((v: VehicleApi) => v.default);
-      if (defaultVehicle) {
-        setSelectedVehicleId(defaultVehicle.id);
+    if (vehicleIdsBeforeAdd) {
+      const newlyAddedVehicle = vehicles.find(
+        (vehicle: VehicleApi) => !vehicleIdsBeforeAdd.includes(vehicle.id),
+      );
+      if (newlyAddedVehicle) {
+        setSelectedVehicleId(newlyAddedVehicle.id);
+        setVehicleIdsBeforeAdd(null);
+        return;
       }
     }
-  }, [vehicles, selectedVehicleId]);
+
+    if (vehicles.length > 0 && !selectedVehicleId) {
+      const defaultVehicle = vehicles.find((v: VehicleApi) => v.default);
+      setSelectedVehicleId(defaultVehicle?.id ?? vehicles[0].id);
+    }
+  }, [vehicles, selectedVehicleId, vehicleIdsBeforeAdd]);
 
   const filteredQuartiers = React.useMemo(() => {
     const q = quartierSearch.trim().toLowerCase();
@@ -293,6 +330,22 @@ const ShareRouteScreen = () => {
 
   const handlePublish = async () => {
     if (!departure || !arrival || !selectedVehicle) return;
+    if (tripDateValue && tripTimeValue) {
+      const combined = new Date(tripDateValue);
+      combined.setHours(
+        tripTimeValue.getHours(),
+        tripTimeValue.getMinutes(),
+        0,
+        0,
+      );
+      if (combined < new Date()) {
+        Alert.alert(
+          "Date invalide",
+          "La date et l'heure sélectionnées sont déjà passées.",
+        );
+        return;
+      }
+    }
     setIsPublishing(true);
     try {
       await createRoute({
@@ -302,7 +355,7 @@ const ShareRouteScreen = () => {
         dropLng: arrival.longitude,
         pickupAddress: departure.address,
         dropAddress: arrival.address,
-        price: estimatePrice(Number(distanceKm)),
+        price: estimatePrice(Number(distanceKm), 1),
         distanceKm: Number(distanceKm),
         durationMin,
         availableSeats: seatsNum,
@@ -319,7 +372,19 @@ const ShareRouteScreen = () => {
       });
       router.back();
     } catch (e) {
-      console.error(e);
+      const message =
+        e instanceof Error ? e.message : "Erreur lors de la publication";
+      Alert.alert("Publication impossible", message, [
+        { text: "Fermer", style: "cancel" },
+        ...(message.toLowerCase().includes("commission")
+          ? [
+              {
+                text: "Payer maintenant",
+                onPress: () => router.push("/(stack)/payment" as any),
+              },
+            ]
+          : []),
+      ]);
     } finally {
       setIsPublishing(false);
     }
@@ -331,10 +396,11 @@ const ShareRouteScreen = () => {
     activeMapField === "arrivee" && pendingPoint ? pendingPoint : arrival;
 
   React.useEffect(() => {
-    if (selectedVehicle && seats > selectedVehicle.maximumPassenger) {
-      setSeats(selectedVehicle.maximumPassenger);
-    }
-  }, [selectedVehicleId, selectedVehicle?.maximumPassenger]);
+    if (!selectedVehicle) return;
+    setSeats((previousSeats) =>
+      Math.min(previousSeats, selectedVehicle.maximumPassenger),
+    );
+  }, [selectedVehicle]);
 
   if (activeMapField) {
     return (
@@ -349,12 +415,85 @@ const ShareRouteScreen = () => {
             </Text>
             <View className="w-6" />
           </View>
-          <Input
-            value={quartierSearch}
-            onChangeText={setQuartierSearch}
-            placeholder="Rechercher par quartier"
-            className="bg-white"
-          />
+          <View className="z-50">
+            <GooglePlacesAutocomplete
+              placeholder="Rechercher un lieu..."
+              fetchDetails
+              onPress={(_data, details) => {
+                if (details?.geometry?.location) {
+                  const { lat, lng } = details.geometry.location;
+                  const addr = details.formatted_address ?? details.name ?? "Lieu sélectionné";
+                  const point: RoutePoint = {
+                    latitude: lat,
+                    longitude: lng,
+                    label: formatPointLabel(lat, lng),
+                    address: addr,
+                  };
+                  setPendingPoint(point);
+                  mapRef.current?.animateToRegion({
+                    latitude: lat,
+                    longitude: lng,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  });
+                }
+              }}
+              nearbyPlacesAPI="GooglePlacesSearch"
+              debounce={400}
+              minLength={2}
+              listViewDisplayed="auto"
+              GooglePlacesDetailsQuery={{ fields: "geometry,formatted_address,name" }}
+              query={{
+                key: Constants.expoConfig?.extra?.googleMapsApiKey ?? "",
+                language: "fr",
+                components: "country:ml",
+                types: "geocode|establishment",
+                radius: 50000,
+                location: "12.6392,-8.0029",
+              }}
+              styles={{
+                container: { flex: 0, zIndex: 1 },
+                textInput: {
+                  height: 44,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  fontSize: 14,
+                  backgroundColor: "white",
+                  borderWidth: 1,
+                  borderColor: "#e5e7eb",
+                  ...Platform.select({
+                    ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+                    android: { elevation: 3 },
+                  }),
+                },
+                listView: {
+                  borderRadius: 12,
+                  marginTop: 4,
+                  backgroundColor: "white",
+                  position: "absolute",
+                  top: 48,
+                  ...Platform.select({
+                    ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 },
+                    android: { elevation: 5 },
+                  }),
+                },
+                row: { padding: 12, minHeight: 48 },
+                description: { fontSize: 13 },
+                separator: { height: 1, backgroundColor: "#f3f4f6" },
+              }}
+              enablePoweredByContainer={false}
+              textInputProps={{ 
+                placeholderTextColor: "#9ca3af",
+                autoCorrect: false,
+                autoCapitalize: "none",
+                returnKeyType: "search",
+              }}
+              requestUrl={{
+                useOnPlatform: "all",
+                url: "https://maps.googleapis.com/maps/api",
+              }}
+            />
+          </View>
         </View>
         <View className="flex-1">
           <MapView
@@ -416,22 +555,7 @@ const ShareRouteScreen = () => {
             <Ionicons name="locate-outline" size={20} color="#0f172a" />
           </TouchableOpacity>
           <View className="absolute right-5 bottom-5 left-5 p-4 bg-white rounded-2xl border shadow-lg border-gray">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View className="flex-row gap-2">
-                {filteredQuartiers.map((q) => (
-                  <TouchableOpacity
-                    key={q.id}
-                    className="rounded-full bg-primary/10 px-3 py-1.5"
-                    onPress={() => void setPointFromQuartier(q)}
-                  >
-                    <Text className="text-xs font-semibold text-primary">
-                      {q.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-            <View className="p-3 mt-3 rounded-xl border border-gray">
+            <View className="p-3 rounded-xl border border-gray">
               <View className="flex-row gap-2 items-center">
                 <Ionicons name="location-outline" size={16} color="#6366f1" />
                 <Text className="text-xs text-muted-foreground">
@@ -785,11 +909,13 @@ const ShareRouteScreen = () => {
                   <View className="flex-row gap-2 items-center">
                     <Ionicons name="cash-outline" size={18} color="#059669" />
                     <Text className="text-xs text-emerald-700">
-                      Prix estimé (par place)
+                      Prix estimé
                     </Text>
                   </View>
                   <Text className="mt-1 text-lg font-bold text-emerald-700">
-                    {estimatePrice(Number(distanceKm)).toLocaleString("fr-FR")}{" "}
+                    {estimatePrice(Number(distanceKm), 1).toLocaleString(
+                      "fr-FR",
+                    )}{" "}
                     FCFA
                   </Text>
                 </View>
@@ -890,6 +1016,9 @@ const ShareRouteScreen = () => {
                 className="mt-2 rounded-xl"
                 variant="outline"
                 onPress={() => {
+                  setVehicleIdsBeforeAdd(
+                    vehicles.map((vehicle: VehicleApi) => vehicle.id),
+                  );
                   setVehiclePickerOpen(false);
                   router.push("/(stack)/manage-vehicle" as any);
                 }}
@@ -913,6 +1042,7 @@ const ShareRouteScreen = () => {
               onChange={onPickerChange}
               is24Hour
               display={Platform.OS === "ios" ? "spinner" : "default"}
+              minimumDate={pickerMode === "date" ? new Date() : undefined}
             />
             <View className="flex-row gap-2 mt-3">
               <Button
@@ -925,9 +1055,27 @@ const ShareRouteScreen = () => {
               <Button
                 className="flex-1 rounded-xl"
                 onPress={() => {
-                  if (pickerMode === "date") setTripDateValue(pickerTempValue);
-                  if (pickerMode === "time") setTripTimeValue(pickerTempValue);
-                  setPickerMode(null);
+                  if (pickerMode === "date") {
+                    setTripDateValue(pickerTempValue);
+                    setPickerMode(null);
+                  } else if (pickerMode === "time") {
+                    const combined = new Date(tripDateValue ?? new Date());
+                    combined.setHours(
+                      pickerTempValue.getHours(),
+                      pickerTempValue.getMinutes(),
+                      0,
+                      0,
+                    );
+                    if (combined < new Date()) {
+                      Alert.alert(
+                        "Heure invalide",
+                        "L'heure sélectionnée est déjà passée. Veuillez choisir une heure future.",
+                      );
+                      return;
+                    }
+                    setTripTimeValue(pickerTempValue);
+                    setPickerMode(null);
+                  }
                 }}
               >
                 <Text>Valider</Text>

@@ -7,6 +7,7 @@ export type PassengerRequestStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 
 export type PassengerRequest = {
   id: string;
+  userId?: string;
   name: string;
   image?: string;
   phone?: string;
@@ -23,6 +24,7 @@ export type PassengerRequest = {
   date?: string;
   time?: string;
   price?: string;
+  distanceKm?: number;
   routeCoordinates?: { latitude: number; longitude: number }[];
 };
 

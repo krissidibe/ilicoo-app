@@ -1,4 +1,5 @@
 import HeaderApp from "@/src/components/Header/HeaderApp";
+import StarRating from "@/src/components/StarRating";
 import {
   Avatar,
   AvatarFallback,
@@ -6,14 +7,21 @@ import {
 } from "@/src/components/ui/avatar";
 import { Text } from "@/src/components/ui/text";
 import { authClient } from "@/src/lib/auth-client";
-import { useAuthStore } from "@/src/store/auth.store";
+import { getUserRatings } from "@/src/services/rating.service";
 import { getUser } from "@/src/services/user.service";
+import { useAuthStore } from "@/src/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React from "react";
-import { ActivityIndicator, ScrollView, Switch, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  Switch,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 type SettingItemProps = {
@@ -64,6 +72,10 @@ const Setting = () => {
   const [locationEnabled, setLocationEnabled] = React.useState<boolean>(true);
   const [darkMode, setDarkMode] = React.useState<boolean>(false);
   const { data: user, isLoading } = useQuery(getUser());
+  const { data: ratingsData } = useQuery({
+    ...getUserRatings(user?.id ?? ""),
+    enabled: !!user?.id,
+  });
 
   return (
     <View className="flex-1 bg-background">
@@ -96,8 +108,18 @@ const Setting = () => {
                   </AvatarFallback>
                 </Avatar>
                 <View className="flex-1 ml-4">
-                  <Text className="text-lg font-bold">{user?.name ?? "Utilisateur"}</Text>
+                  <Text className="text-lg font-bold">
+                    {user?.name ?? "Utilisateur"}
+                  </Text>
                   <Text className="text-sm mt-0.5">{user?.email ?? ""}</Text>
+                  {ratingsData && ratingsData.totalRatings > 0 && (
+                    <View className="flex-row items-center mt-1.5 gap-1.5">
+                      <StarRating rating={Math.round(ratingsData.averageRating)} size={14} />
+                      <Text className="text-xs text-muted-foreground">
+                        {ratingsData.averageRating.toFixed(1)} ({ratingsData.totalRatings} avis)
+                      </Text>
+                    </View>
+                  )}
                   <TouchableOpacity
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -148,11 +170,22 @@ const Setting = () => {
                 }}
               />
             </Animated.View>
+            <Animated.View entering={FadeInDown.delay(125).duration(350)}>
+              <SettingItem
+                icon="document-text-outline"
+                title="Mon permis"
+                subtitle="Gérer les informations de permis"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(stack)/edit-permit" as any);
+                }}
+              />
+            </Animated.View>
             <Animated.View entering={FadeInDown.delay(150).duration(350)}>
               <SettingItem
                 icon="card-outline"
-                title="Méthode de paiement"
-                subtitle="Carte bancaire et mobile money"
+                title="Commission"
+                subtitle=" Commission à payer"
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push("/(stack)/payment" as any);

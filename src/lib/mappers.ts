@@ -5,6 +5,7 @@ import type { RoutePassengerApi, RouteApi, VehicleApi } from "@/src/types/api";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import type { MyPublishedTrip, MyPublishedTripStatus, PassengerRequest, PassengerRequestStatus } from "@/src/data/myPublishedTrips";
 import type { OtherDriverRoute } from "@/src/data/otherDriversRoutes";
+import { formatPrice, formatPriceDisplay, calculateTripPrice } from "@/src/lib/utils";
 
 const ROUTE_PASSENGER_STATUS_TO_UI: Record<string, TripStatus> = {
   COMPLETED: "Termine",
@@ -32,6 +33,11 @@ const PASSENGER_STATUS_UI: Record<string, PassengerRequestStatus> = {
 
 const COLORS = ["#e11d48", "#059669", "#7c3aed", "#0d9488", "#ea580c", "#4f46e5", "#be185d"];
 
+const isSameDay = (d1: Date, d2: Date) =>
+  d1.getFullYear() === d2.getFullYear() &&
+  d1.getMonth() === d2.getMonth() &&
+  d1.getDate() === d2.getDate();
+
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
@@ -44,6 +50,17 @@ const formatDate = (dateStr: string | null) => {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 };
 
+const formatDateShort = (dateStr: string | null) => {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  const now = new Date();
+  if (isSameDay(d, now)) return "Aujourd'hui";
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (isSameDay(d, yesterday)) return "Hier";
+  return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" });
+};
+
 export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUserId?: string): RecentTrip => {
   const route = rp.route;
   const driver = route?.user;
@@ -52,14 +69,13 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
   const myFrom = rp.pickupAddress ?? route?.pickupAddress ?? "—";
   const myTo = rp.dropAddress ?? route?.dropAddress ?? "—";
   const myDate = rp.departureAt
-    ? new Date(rp.departureAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" })
+    ? formatDateShort(rp.departureAt)
     : formatDate(route?.departureAt ?? rp.createdAt);
   const myTime = rp.departureAt
     ? new Date(rp.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
     : (route?.departureAt ? new Date(route.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—");
-  const myPrice = route
-    ? `${(route.price * (rp.seats ?? 1)).toLocaleString("fr-FR")} FCFA`
-    : "—";
+  const seatsCount = rp.seats ?? 1;
+  const myPrice = route ? formatPrice(route.distanceKm, seatsCount) : "—";
   const PASSENGER_STATUS_UI: Record<string, import("@/src/data/recentTrips").PassengerStatusUi> = {
     PENDING: "En attente",
     ACCEPTED: "Confirmé",
@@ -79,11 +95,13 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
     from: route?.pickupAddress ?? "—",
     to: route?.dropAddress ?? "—",
     date: formatDate(route?.departureAt ?? rp.createdAt),
-    price: route ? `${route.price.toLocaleString("fr-FR")} FCFA` : "—",
+    price: route ? formatPrice(route.distanceKm, seatsCount) : "—",
     status,
+    distanceKm: route?.distanceKm,
     driver:
       driver && (status === "Termine" || status === "En attente" || status === "En cours")
         ? {
+            id: driver.id,
             name: driver.name,
             phone: `${driver.phoneDialCode}${driver.phoneNumber}`,
             rating: 4.5,
@@ -99,6 +117,7 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
       date: myDate,
       time: myTime,
       price: myPrice,
+      seats: rp.seats ?? 1,
       passengerStatus,
       pickupLat: rp.pickupLat ?? route?.pickupLat,
       pickupLng: rp.pickupLng ?? route?.pickupLng,
@@ -114,11 +133,10 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
   const status = RIDE_STATUS_TO_UI[r.status] ?? "En attente";
   const vehicleName = r.user?.vehicles?.[0]?.name ?? "Véhicule";
   const totalSeats = r.availableSeats + (r.passengers?.reduce((s, p) => s + p.seats, 0) ?? 0);
-  const totalSeatsForPrice = r.availableSeats + (r.passengers?.reduce((s, p) => s + p.seats, 0) ?? 0) || 1;
+  const totalPassengers = (r.passengers ?? []).reduce((s, p) => s + p.seats, 0) || 1;
   const passengers: PassengerRequest[] = (r.passengers ?? []).map((p) => {
-    const passengerPrice = totalSeatsForPrice > 0
-      ? Math.round((r.price * p.seats) / totalSeatsForPrice)
-      : 0;
+    const tripPrice = calculateTripPrice(r.distanceKm, totalPassengers);
+    const passengerPrice = (tripPrice / totalPassengers) * p.seats;
     const pPickupLat = p.pickupLat ?? r.pickupLat;
     const pPickupLng = p.pickupLng ?? r.pickupLng;
     const pDropLat = p.dropLat ?? r.dropLat;
@@ -128,6 +146,7 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
     const pDepartureAt = p.departureAt ?? r.departureAt;
     return {
       id: p.id,
+      userId: p.userId,
       name: p.user?.name ?? "Passager",
       image: p.user?.image ?? undefined,
       phone: p.user ? `${p.user.phoneDialCode}${p.user.phoneNumber}` : undefined,
@@ -142,12 +161,12 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
       pickupAddress: pPickupAddress,
       dropAddress: pDropAddress,
       date: pDepartureAt
-        ? new Date(pDepartureAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" })
-        : (r.departureAt ? new Date(r.departureAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" }) : "—"),
+        ? formatDateShort(pDepartureAt)
+        : (r.departureAt ? formatDateShort(r.departureAt) : "—"),
       time: pDepartureAt
         ? new Date(pDepartureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
         : (r.departureAt ? new Date(r.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—"),
-      price: `${passengerPrice.toLocaleString("fr-FR")} FCFA`,
+      price: formatPriceDisplay(passengerPrice),
       routeCoordinates: [
         { latitude: pPickupLat, longitude: pPickupLng },
         { latitude: pDropLat, longitude: pDropLng },
@@ -158,13 +177,11 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
     id: r.id,
     from: r.pickupAddress,
     to: r.dropAddress,
-    date: r.departureAt
-      ? new Date(r.departureAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" })
-      : "—",
+    date: r.departureAt ? formatDateShort(r.departureAt) : "—",
     time: r.departureAt
       ? new Date(r.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
       : "—",
-    price: `${r.price.toLocaleString("fr-FR")} FCFA`,
+    price: formatPrice(r.distanceKm, 1),
     status,
     availableSeats: r.availableSeats,
     totalSeats,
@@ -181,7 +198,9 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
   };
 };
 
-export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { name: string; image?: string | null } }, index: number): OtherDriverRoute => ({
+export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { name: string; image?: string | null }; passengers?: { seats: number }[] }, index: number): OtherDriverRoute => {
+  const reservedSeats = (r.passengers ?? []).reduce((sum, p) => sum + p.seats, 0);
+  return {
   id: r.id,
   driverName: r.user?.name ?? "Chauffeur",
   driverRating: 4.5,
@@ -191,8 +210,11 @@ export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { name: string
   pickupLng: r.pickupLng,
   dropLat: r.dropLat,
   dropLng: r.dropLng,
-  price: `${r.price.toLocaleString("fr-FR")} FCFA`,
+  distanceKm: r.distanceKm,
+  price: formatPrice(r.distanceKm, 1),
+  pricePerSeat: r.price,
   availableSeats: r.availableSeats,
+  reservedSeats,
   departureAt: r.departureAt
     ? new Date(r.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
     : "—",
@@ -201,7 +223,7 @@ export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { name: string
     { latitude: r.dropLat, longitude: r.dropLng },
   ],
   color: COLORS[index % COLORS.length],
-});
+};};
 
 export const mapVehicleToUi = (v: VehicleApi) => ({
   id: v.id,

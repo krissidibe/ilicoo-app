@@ -8,12 +8,17 @@ export type NotificationApi = {
   body: string | null;
   read: boolean;
   routeId: string | null;
+  metadata?: {
+    routePassengerId?: string;
+    [key: string]: unknown;
+  } | null;
   createdAt: string;
   route?: {
     id: string;
     pickupAddress: string;
     dropAddress: string;
     price: number;
+    distanceKm?: number;
     departureAt: string | null;
   };
 };

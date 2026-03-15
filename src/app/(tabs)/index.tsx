@@ -1,10 +1,12 @@
 import { RouteMapView } from "@/src/components/Map/RouteMapView";
+import StarRating from "@/src/components/StarRating";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
 import { cn } from "@/src/lib/utils";
 import { getNotifications } from "@/src/services/notification.service";
 import { queryKeys } from "@/src/services/queryKeys";
+import { createRating } from "@/src/services/rating.service";
 import {
   cancelMyTrip,
   getRoutePassengers,
@@ -20,6 +22,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -69,15 +72,67 @@ const statusConfig = (
   };
 };
 
+const TripRatingSection = ({
+  routeId,
+  toUserId,
+  driverName,
+  onRate,
+  isPending,
+}: {
+  routeId: string;
+  toUserId: string;
+  driverName: string;
+  onRate: (stars: number) => void;
+  isPending: boolean;
+}) => {
+  const [selectedStars, setSelectedStars] = React.useState(0);
+  const [submitted, setSubmitted] = React.useState(false);
+
+  return (
+    <View className="p-4 mt-4 bg-amber-50 rounded-2xl border border-amber-200">
+      <Text className="mb-2 text-xs font-semibold tracking-wide text-amber-700 uppercase">
+        Noter le chauffeur
+      </Text>
+      <Text className="mb-3 text-sm text-muted-foreground">
+        Comment était votre trajet avec {driverName} ?
+      </Text>
+      <View className="items-center">
+        <StarRating
+          rating={selectedStars}
+          size={32}
+          editable={!submitted}
+          onChange={(stars) => {
+            setSelectedStars(stars);
+            if (!submitted) {
+              setSubmitted(true);
+              onRate(stars);
+            }
+          }}
+        />
+        {submitted && (
+          <Text className="mt-2 text-xs font-medium text-amber-700">
+            Merci pour votre note !
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+};
+
 const HomeScreen = () => {
   const isLoadingUser = false;
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   const { open, close } = useBottomSheetStore();
-  const { data: routePassengersData, isLoading: isLoadingTrips } =
-    useQuery(getRoutePassengers());
-  const { data: notificationsData } = useQuery(getNotifications());
+  const { data: routePassengersData, isLoading: isLoadingTrips } = useQuery({
+    ...getRoutePassengers(),
+    refetchInterval: 5000,
+  });
+  const { data: notificationsData } = useQuery({
+    ...getNotifications(),
+    refetchInterval: 5000,
+  });
   const unreadCount = notificationsData?.unreadCount ?? 0;
 
   const cancelMutation = useMutation({
@@ -92,6 +147,19 @@ const HomeScreen = () => {
       Alert.alert(
         "Erreur",
         e instanceof Error ? e.message : "Impossible d'annuler",
+      );
+    },
+  });
+
+  const ratingMutation = useMutation({
+    mutationFn: createRating,
+    onSuccess: () => {
+      Alert.alert("Merci", "Votre note a été enregistrée !");
+    },
+    onError: (e) => {
+      Alert.alert(
+        "Erreur",
+        e instanceof Error ? e.message : "Impossible de noter",
       );
     },
   });
@@ -215,16 +283,20 @@ const HomeScreen = () => {
                 </Text>
               </View>
             </View>
-            <View
-              className={`flex-row items-center rounded-full px-2 py-1 ${statusStyle.statusColor}`}
-            >
-              <MaterialCommunityIcons
-                name={statusStyle.icon}
-                size={14}
-                color={statusStyle.statusIconColor}
-              />
-              <Text className="ml-1 text-xs font-semibold">{trip.status}</Text>
-            </View>
+            {false && (
+              <View
+                className={`flex-row items-center rounded-full px-2 py-1 ${statusStyle.statusColor}`}
+              >
+                <MaterialCommunityIcons
+                  name={statusStyle.icon}
+                  size={14}
+                  color={statusStyle.statusIconColor}
+                />
+                <Text className="ml-1 text-xs font-semibold">
+                  {trip.status}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View className="flex-row items-center mb-3">
@@ -259,16 +331,18 @@ const HomeScreen = () => {
                 {trip.date}
               </Text>
             </View>
-            <View className="flex-row items-center">
-              <MaterialCommunityIcons
-                name="cash-multiple"
-                size={16}
-                color="#10b981"
-              />
-              <Text className="ml-1 text-sm font-bold text-foreground">
-                {trip.price}
-              </Text>
-            </View>
+            {false && (
+              <View className="flex-row items-center">
+                <MaterialCommunityIcons
+                  name="cash-multiple"
+                  size={16}
+                  color="#10b981"
+                />
+                <Text className="ml-1 text-sm font-bold text-foreground">
+                  {trip.price}
+                </Text>
+              </View>
+            )}
           </View>
 
           {trip.pickupLat != null && trip.dropLat != null && (
@@ -285,7 +359,7 @@ const HomeScreen = () => {
                 color="#6366f1"
               />
               <Text className="text-sm font-semibold text-primary">
-                Voir l'itinéraire sur la carte
+                Voir l&apos;itinéraire sur la carte
               </Text>
             </TouchableOpacity>
           )}
@@ -393,6 +467,28 @@ const HomeScreen = () => {
                 Prix: {myInfo.price}
               </Text>
             </View>
+            <View className="flex-row items-center mt-2">
+              <MaterialCommunityIcons
+                name="seat-passenger"
+                size={14}
+                color="#6366f1"
+              />
+              <Text className="ml-1 text-xs font-semibold text-primary">
+                Places réservées: {myInfo.seats ?? 1}
+              </Text>
+            </View>
+            {trip.distanceKm != null && (
+              <View className="flex-row items-center mt-2">
+                <MaterialCommunityIcons
+                  name="map-marker-distance"
+                  size={14}
+                  color="#f97316"
+                />
+                <Text className="ml-1 text-xs font-semibold text-orange-600">
+                  Distance: {trip.distanceKm.toFixed(1)} km
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -417,7 +513,22 @@ const HomeScreen = () => {
           </View>
         )}
 
-        {/* Annuler mon trajet */}
+        {trip.status === "Termine" && trip.driver?.id && (
+          <TripRatingSection
+            routeId={String(trip.id)}
+            toUserId={trip.driver.id}
+            driverName={trip.driver.name}
+            onRate={(stars) =>
+              ratingMutation.mutate({
+                routeId: String(trip.id),
+                toUserId: trip.driver!.id!,
+                stars,
+              })
+            }
+            isPending={ratingMutation.isPending}
+          />
+        )}
+
         {trip.canCancel && trip.routePassengerId && (
           <TouchableOpacity
             onPress={() => {
@@ -456,198 +567,282 @@ const HomeScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-background">
-      <Animated.View
-        entering={FadeIn.duration(500)}
-        className="relative z-50 px-5 pb-16 rounded-b-3xl pt-safe bg-primary"
+    <>
+      {/* Modal de confirmation de paiement */}
+      <Modal
+        visible={false}
+        transparent
+        animationType="slide"
+        // onRequestClose={() => setPaymentConfirmationVisible(false)}
       >
-        <View className="flex-row justify-between items-center">
-          <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-            <Text className="pt-5 text-base text-primary-foreground/80">
-              Bonjour 👋
+        <View className="flex-1 justify-center items-center bg-black/20">
+          <View className="p-6 w-[90%] max-w-md bg-white rounded-2xl items-center">
+            <MaterialCommunityIcons
+              name="check-circle-outline"
+              size={48}
+              color="#10b981"
+              style={{ marginBottom: 12 }}
+            />
+            <Text className="mb-2 text-lg font-bold text-emerald-700">
+              Trajet terminé
             </Text>
-            {isLoadingUser ? (
-              <ActivityIndicator size="small" color="white" className="mt-2" />
-            ) : (
-              <Text className="text-2xl font-bold text-primary-foreground">
-                {currentUser?.name || "Utilisateur"}
-              </Text>
-            )}
-          </Animated.View>
+            <Text className="text-base text-center text-muted-foreground">
+              Votre trajet a bien été terminé.
+            </Text>
+            <Text className="mb-6 text-base text-center text-muted-foreground">
+              Voulez vous confirmer le trajet ?
+            </Text>
 
-          <Animated.View
-            className="z-30"
-            entering={ZoomIn.delay(200).duration(400)}
-          >
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                className="px-5 py-2 bg-red-600 rounded-xl"
+                // onPress={() => setPaymentConfirmationVisible(false)}
+              >
+                <Text className="font-semibold text-white">Signaler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="px-5 py-2 bg-emerald-600 rounded-xl"
+                // onPress={() => setPaymentConfirmationVisible(false)}
+              >
+                <Text className="font-semibold text-white">Confirmer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <View className="flex-1 bg-background">
+        <Animated.View
+          entering={FadeIn.duration(500)}
+          className="relative z-50 px-5 pb-16 rounded-b-3xl pt-safe bg-primary"
+        >
+          <View className="flex-row justify-between items-center">
+            <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+              <Text className="pt-5 text-base text-primary-foreground/80">
+                Bonjour 👋
+              </Text>
+              {isLoadingUser ? (
+                <ActivityIndicator
+                  size="small"
+                  color="white"
+                  className="mt-2"
+                />
+              ) : (
+                <Text className="text-2xl font-bold text-primary-foreground">
+                  {currentUser?.name || "Utilisateur"}
+                </Text>
+              )}
+            </Animated.View>
+
+            <Animated.View
+              className="z-30"
+              entering={ZoomIn.delay(200).duration(400)}
+            >
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(stack)/notifications" as any);
+                }}
+                className="relative p-3 rounded-full bg-primary-foreground/20"
+              >
+                <MaterialCommunityIcons name="bell" size={22} color="white" />
+                {unreadCount > 0 && (
+                  <View className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-primary items-center justify-center px-1">
+                    <Text className="text-[10px] font-bold text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+
+          <Animated.View className="absolute right-0 left-0 -bottom-7 z-40 px-5">
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push("/(stack)/notifications" as any);
+                router.push("/(stack)/search-route" as any);
               }}
-              className="relative p-3 rounded-full bg-primary-foreground/20"
+              activeOpacity={1}
+              className="z-30 flex-row gap-3 items-center p-4 bg-white rounded-2xl shadow-lg shadow-black/10"
             >
-              <MaterialCommunityIcons name="bell" size={22} color="white" />
-              {unreadCount > 0 && (
-                <View className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-primary items-center justify-center px-1">
-                  <Text className="text-[10px] font-bold text-white">
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </Text>
-                </View>
-              )}
+              <View className="p-2 rounded-full bg-primary/10">
+                <SearchIcon size={20} color="#6366f1" strokeWidth={2.5} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-semibold text-foreground">
+                  Où allez-vous ?
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  Trouvez votre prochain trajet
+                </Text>
+              </View>
+              <ChevronRightIcon size={20} color="#666" />
             </TouchableOpacity>
           </Animated.View>
-        </View>
-
-        <Animated.View className="absolute right-0 left-0 -bottom-7 z-40 px-5">
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/(stack)/search-route" as any);
-            }}
-            activeOpacity={1}
-            className="z-30 flex-row gap-3 items-center p-4 bg-white rounded-2xl shadow-lg shadow-black/10"
-          >
-            <View className="p-2 rounded-full bg-primary/10">
-              <SearchIcon size={20} color="#6366f1" strokeWidth={2.5} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-foreground">
-                Où allez-vous ?
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                Trouvez votre prochain trajet
-              </Text>
-            </View>
-            <ChevronRightIcon size={20} color="#666" />
-          </TouchableOpacity>
         </Animated.View>
-      </Animated.View>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pb-8 pt-12"
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="flex-row justify-between items-center mb-4">
-          <Text className="text-lg font-bold text-foreground">
-            Trajets récents
-          </Text>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push("/(stack)/recent-trips" as any);
-            }}
-          >
-            <Text className="text-sm font-medium text-primary">Voir tout</Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="px-5 pb-8 pt-12"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-lg font-bold text-foreground">
+              Trajets récents
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/(stack)/recent-trips" as any);
+              }}
+            >
+              <Text className="text-sm font-medium text-primary">
+                Voir tout
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        <View className="gap-3">
-          {isLoadingTrips ? (
-            <ActivityIndicator size="large" color="#6366f1" className="py-8" />
-          ) : displayedTrips.length === 0 ? (
-            <View className="items-center py-8">
-              <Text className="text-muted-foreground">Aucun trajet récent</Text>
-            </View>
-          ) : (
-            displayedTrips.map((trip, index) => {
-              const statusStyle = statusConfig(trip.status);
-              return (
-                <Animated.View
-                  key={trip.id}
-                  entering={FadeInDown.delay(250 + index * 90).duration(450)}
-                >
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    className="p-4 bg-white rounded-2xl border border-gray-300 shadow-sm shadow-black/5"
-                    onPress={() => openTripDetails(trip)}
+          <View className="gap-3">
+            {isLoadingTrips ? (
+              <ActivityIndicator
+                size="large"
+                color="#6366f1"
+                className="py-8"
+              />
+            ) : displayedTrips.length === 0 ? (
+              <View className="items-center py-8">
+                <Text className="text-muted-foreground">
+                  Aucun trajet récent
+                </Text>
+              </View>
+            ) : (
+              displayedTrips.map((trip, index) => {
+                const passengerStatus = trip.myPassengerInfo?.passengerStatus;
+                const passengerStatusStyle =
+                  passengerStatus === "Confirmé"
+                    ? {
+                        color: "bg-emerald-500/15 text-emerald-600",
+                        iconColor: "#059669",
+                        icon: "check-circle-outline" as const,
+                      }
+                    : passengerStatus === "Refusé" ||
+                        passengerStatus === "Annulé"
+                      ? {
+                          color: "bg-red-500/15 text-red-600",
+                          iconColor: "#dc2626",
+                          icon: "close-circle-outline" as const,
+                        }
+                      : passengerStatus === "Terminé"
+                        ? {
+                            color: "bg-blue-500/15 text-blue-600",
+                            iconColor: "#2563eb",
+                            icon: "check-circle-outline" as const,
+                          }
+                        : {
+                            color: "bg-amber-500/15 text-amber-600",
+                            iconColor: "#d97706",
+                            icon: "timer-outline" as const,
+                          };
+                return (
+                  <Animated.View
+                    key={trip.id}
+                    entering={FadeInDown.delay(250 + index * 90).duration(450)}
                   >
-                    <View className="flex-row justify-between items-center mb-3">
-                      <View className="flex-row flex-1 items-center pr-3">
-                        <View className="p-2 mr-2 rounded-full bg-blue-500/10">
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      className="p-4 bg-white rounded-2xl border border-gray-300 shadow-sm shadow-black/5"
+                      onPress={() => openTripDetails(trip)}
+                    >
+                      <View className="flex-row justify-between items-center mb-3">
+                        <View className="flex-row flex-1 items-center pr-3">
+                          <View className="p-2 mr-2 rounded-full bg-blue-500/10">
+                            <MaterialCommunityIcons
+                              name="map-marker-outline"
+                              size={18}
+                              color="#2563eb"
+                            />
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Départ
+                            </Text>
+                            <Text
+                              className="text-sm font-semibold text-foreground"
+                              numberOfLines={1}
+                            >
+                              {trip.from}
+                            </Text>
+                          </View>
+                        </View>
+                        {passengerStatus && (
+                          <View
+                            className={`flex-row items-center rounded-full px-2 py-1 ${passengerStatusStyle.color}`}
+                          >
+                            <MaterialCommunityIcons
+                              name={passengerStatusStyle.icon}
+                              size={14}
+                              color={passengerStatusStyle.iconColor}
+                            />
+                            <Text className="ml-1 text-xs font-semibold">
+                              {passengerStatus}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <View className="flex-row items-center mb-3">
+                        <View className="p-2 mr-2 rounded-full bg-rose-500/10">
                           <MaterialCommunityIcons
                             name="map-marker-outline"
                             size={18}
-                            color="#2563eb"
+                            color="#e11d48"
                           />
                         </View>
                         <View className="flex-1">
                           <Text className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            Départ
+                            Arrivée
                           </Text>
                           <Text
                             className="text-sm font-semibold text-foreground"
                             numberOfLines={1}
                           >
-                            {trip.from}
+                            {trip.to}
                           </Text>
                         </View>
                       </View>
-                      <View
-                        className={`flex-row items-center rounded-full px-2 py-1 ${statusStyle.statusColor}`}
-                      >
-                        <MaterialCommunityIcons
-                          name={statusStyle.icon}
-                          size={14}
-                          color={statusStyle.statusIconColor}
-                        />
-                        <Text className="ml-1 text-xs font-semibold">
-                          {trip.status}
-                        </Text>
-                      </View>
-                    </View>
 
-                    <View className="flex-row items-center mb-3">
-                      <View className="p-2 mr-2 rounded-full bg-rose-500/10">
-                        <MaterialCommunityIcons
-                          name="map-marker-outline"
-                          size={18}
-                          color="#e11d48"
-                        />
+                      <View className="flex-row justify-between items-center">
+                        <View className="flex-row items-center">
+                          <MaterialCommunityIcons
+                            name="clock-outline"
+                            size={16}
+                            color="#9ca3af"
+                          />
+                          <Text className="ml-1 text-xs text-muted-foreground">
+                            {trip.myPassengerInfo?.date}{" "}
+                            {trip.myPassengerInfo?.time}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center">
+                          <MaterialCommunityIcons
+                            name="cash-multiple"
+                            size={16}
+                            color="#10b981"
+                          />
+                          <Text className="ml-1 text-sm font-bold text-foreground">
+                            {trip.price}
+                          </Text>
+                        </View>
                       </View>
-                      <View className="flex-1">
-                        <Text className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Arrivée
-                        </Text>
-                        <Text
-                          className="text-sm font-semibold text-foreground"
-                          numberOfLines={1}
-                        >
-                          {trip.to}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View className="flex-row justify-between items-center">
-                      <View className="flex-row items-center">
-                        <MaterialCommunityIcons
-                          name="clock-outline"
-                          size={16}
-                          color="#9ca3af"
-                        />
-                        <Text className="ml-1 text-xs text-muted-foreground">
-                          {trip.date}
-                        </Text>
-                      </View>
-                      <View className="flex-row items-center">
-                        <MaterialCommunityIcons
-                          name="cash-multiple"
-                          size={16}
-                          color="#10b981"
-                        />
-                        <Text className="ml-1 text-sm font-bold text-foreground">
-                          {trip.price}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
-              );
-            })
-          )}
-        </View>
-      </ScrollView>
-    </View>
+                    </TouchableOpacity>
+                  </Animated.View>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    </>
   );
 };
 

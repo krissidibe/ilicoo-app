@@ -1,23 +1,16 @@
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/src/components/ui/select";
 import { Text } from "@/src/components/ui/text";
 import { cn } from "@/src/lib/utils";
 import { queryKeys } from "@/src/services/queryKeys";
 import { createVehicle } from "@/src/services/vehicle.service";
+import { getUser } from "@/src/services/user.service";
 import { Ionicons } from "@expo/vector-icons";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Modal, Platform, ScrollView, TouchableOpacity, View } from "react-native";
+import { Modal, ScrollView, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 type VehicleType = "voiture" | "moto";
@@ -62,11 +55,14 @@ type VehicleFormValues = {
 };
 
 const ManageVehicleScreen = () => {
+  const { data: currentUser } = useQuery(getUser());
+  const hasPermitInfo = !!(currentUser?.permitNumber || currentUser?.permitPhoto || currentUser?.permitPhotoBack || currentUser?.identityPhoto);
+
   const [currentStep, setCurrentStep] = React.useState<number>(0);
   const [furthestUnlockedStep, setFurthestUnlockedStep] =
     React.useState<number>(0);
-  const [yearPickerOpen, setYearPickerOpen] = React.useState(false);
-  const [yearDate, setYearDate] = React.useState(new Date());
+  const [yearSheetOpen, setYearSheetOpen] = React.useState(false);
+  const [colorSheetOpen, setColorSheetOpen] = React.useState(false);
 
   const {
     control,
@@ -104,11 +100,11 @@ const ManageVehicleScreen = () => {
       { id: 0, label: "Infos", icon: "information-circle-outline" },
       { id: 1, label: "Véhicule", icon: isMoto ? "bicycle-outline" : "car-sport-outline" },
     ];
-    if (!isMoto) {
+    if (!isMoto && !hasPermitInfo) {
       base.push({ id: 2, label: "Permis", icon: "document-text-outline" });
     }
     return base;
-  }, [isMoto]);
+  }, [isMoto, hasPermitInfo]);
 
   React.useEffect(() => {
     if (!vehicleType) {
@@ -124,6 +120,11 @@ const ManageVehicleScreen = () => {
     ? [
         ["vehicleType", "maximumPassenger"],
         ["vehicleName", "color"],
+      ]
+    : hasPermitInfo
+    ? [
+        ["vehicleType", "maximumPassenger"],
+        ["vehicleName", "year", "plateNumber", "color"],
       ]
     : [
         ["vehicleType", "maximumPassenger"],
@@ -175,17 +176,13 @@ const ManageVehicleScreen = () => {
     }
   };
 
-  const onYearPickerChange = (e: DateTimePickerEvent, date?: Date) => {
-    if (e.type === "dismissed") {
-      setYearPickerOpen(false);
-      return;
-    }
-    if (date) {
-      setYearDate(date);
-      setValue("year", String(date.getFullYear()), { shouldValidate: true });
-      setYearPickerOpen(false);
-    }
-  };
+  const yearOptions = React.useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from(
+      { length: currentYear - 1989 },
+      (_, index) => String(currentYear - index),
+    );
+  }, []);
 
   const queryClient = useQueryClient();
   const createMutation = useMutation({
@@ -363,10 +360,7 @@ const ManageVehicleScreen = () => {
                         Année
                       </Text>
                       <TouchableOpacity
-                        onPress={() => {
-                          setYearDate(value ? new Date(parseInt(value, 10), 0) : new Date());
-                          setYearPickerOpen(true);
-                        }}
+                        onPress={() => setYearSheetOpen(true)}
                         className="flex-row justify-between items-center p-4 rounded-xl border border-gray bg-white"
                       >
                         <Text className="text-sm">
@@ -417,36 +411,25 @@ const ManageVehicleScreen = () => {
                   <Text className="mb-1 text-xs text-muted-foreground">
                     Couleur
                   </Text>
-                  <Select
-                    value={value ? { value, label: value } : undefined}
-                    onValueChange={(opt) => onChange(opt?.value ?? "")}
+                  <TouchableOpacity
+                    onPress={() => setColorSheetOpen(true)}
+                    className="flex-row justify-between items-center p-4 rounded-xl border border-gray bg-white"
                   >
-                    <SelectTrigger className="w-full">
-                      <View className="flex-row items-center gap-2">
-                        {value ? (
-                          <View
-                            className="size-4 rounded-full border border-gray-300"
-                            style={{
-                              backgroundColor: COLOR_HEX[value] ?? "#9ca3af",
-                            }}
-                          />
-                        ) : null}
-                        <SelectValue placeholder="Choisir une couleur" />
-                      </View>
-                    </SelectTrigger>
-                    <SelectContent className="mt-2 w-[91%]">
-                      {COLORS.map((c) => (
-                        <SelectItem key={c} label={c} value={c}>
-                          <View
-                            className="mr-2 size-4 rounded-full border border-gray-300"
-                            style={{
-                              backgroundColor: COLOR_HEX[c] ?? "#9ca3af",
-                            }}
-                          />
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <View className="flex-row items-center gap-2">
+                      {value ? (
+                        <View
+                          className="size-4 rounded-full border border-gray-300"
+                          style={{
+                            backgroundColor: COLOR_HEX[value] ?? "#9ca3af",
+                          }}
+                        />
+                      ) : null}
+                      <Text className={cn("text-sm", !value && "text-muted-foreground")}>
+                        {value || "Choisir une couleur"}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={16} color="#64748b" />
+                  </TouchableOpacity>
                   {errors.color ? (
                     <Text className="mt-1 text-xs text-red-500">
                       {errors.color.message}
@@ -455,6 +438,118 @@ const ManageVehicleScreen = () => {
                 </View>
               )}
             />
+
+            <Modal
+              transparent
+              visible={yearSheetOpen}
+              animationType="slide"
+              onRequestClose={() => setYearSheetOpen(false)}
+            >
+              <View className="flex-1 justify-end bg-black/40">
+                <View className="bg-white rounded-t-3xl max-h-[70%] pb-safe">
+                  <View className="flex-row justify-between items-center p-4 border-b border-gray-200">
+                    <Text className="text-lg font-bold text-foreground">
+                      Choisir l'année
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setYearSheetOpen(false)}
+                      className="p-2"
+                    >
+                      <Ionicons name="close" size={24} color="#64748b" />
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView
+                    className="p-4"
+                    contentContainerStyle={{ paddingBottom: 24 }}
+                  >
+                    {yearOptions.map((year) => (
+                      <TouchableOpacity
+                        key={year}
+                        onPress={() => {
+                          setValue("year", year, { shouldValidate: true });
+                          setYearSheetOpen(false);
+                        }}
+                        className={cn(
+                          "p-4 rounded-xl border mb-3",
+                          watch("year") === year
+                            ? "border-primary bg-primary/10"
+                            : "border-gray",
+                        )}
+                      >
+                        <Text className="text-sm font-semibold text-foreground">
+                          {year}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+            </Modal>
+
+            <Modal
+              transparent
+              visible={colorSheetOpen}
+              animationType="slide"
+              onRequestClose={() => setColorSheetOpen(false)}
+            >
+              <View className="flex-1 justify-end bg-black/40">
+                <View className="bg-white rounded-t-3xl max-h-[70%] pb-safe">
+                  <View className="flex-row justify-between items-center p-4 border-b border-gray-200">
+                    <Text className="text-lg font-bold text-foreground">
+                      Choisir la couleur
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setColorSheetOpen(false)}
+                      className="p-2"
+                    >
+                      <Ionicons name="close" size={24} color="#64748b" />
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView
+                    className="p-4"
+                    contentContainerStyle={{ paddingBottom: 24 }}
+                  >
+                    {COLORS.map((colorName) => {
+                      const selected = watch("color") === colorName;
+                      return (
+                        <TouchableOpacity
+                          key={colorName}
+                          onPress={() => {
+                            setValue("color", colorName, { shouldValidate: true });
+                            setColorSheetOpen(false);
+                          }}
+                          className={cn(
+                            "flex-row justify-between items-center p-4 rounded-xl border mb-3",
+                            selected
+                              ? "border-primary bg-primary/10"
+                              : "border-gray",
+                          )}
+                        >
+                          <View className="flex-row items-center gap-2">
+                            <View
+                              className="size-4 rounded-full border border-gray-300"
+                              style={{
+                                backgroundColor: COLOR_HEX[colorName] ?? "#9ca3af",
+                              }}
+                            />
+                            <Text className="text-sm font-semibold text-foreground">
+                              {colorName}
+                            </Text>
+                          </View>
+                          {selected ? (
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={22}
+                              color="#6366f1"
+                            />
+                          ) : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </View>
+            </Modal>
 
             {isMoto ? (
               <Controller
@@ -497,7 +592,7 @@ const ManageVehicleScreen = () => {
           </Animated.View>
         ) : null}
 
-        {currentStep === 2 && !isMoto ? (
+        {currentStep === 2 && !isMoto && !hasPermitInfo ? (
           <Animated.View entering={FadeInDown.duration(350)} className="gap-4">
             <Text className="text-base font-semibold text-foreground">
               Permis
@@ -670,34 +765,6 @@ const ManageVehicleScreen = () => {
         </View>
       </View>
 
-      {yearPickerOpen && (
-        <Modal transparent visible animationType="fade">
-          <View className="flex-1 justify-center items-center px-6 bg-black/40">
-            <View className="p-4 w-full max-w-md bg-white rounded-2xl">
-              <Text className="mb-2 text-base font-semibold text-center">
-                Choisir l'année
-              </Text>
-              <DateTimePicker
-                mode="date"
-                value={yearDate}
-                onChange={onYearPickerChange}
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                maximumDate={new Date()}
-                minimumDate={new Date(1990, 0, 1)}
-              />
-              {Platform.OS === "android" ? null : (
-                <Button
-                  variant="outline"
-                  className="mt-3 rounded-xl"
-                  onPress={() => setYearPickerOpen(false)}
-                >
-                  <Text>Fermer</Text>
-                </Button>
-              )}
-            </View>
-          </View>
-        </Modal>
-      )}
     </View>
   );
 };
