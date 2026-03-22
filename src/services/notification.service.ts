@@ -8,6 +8,8 @@ export type NotificationApi = {
   body: string | null;
   read: boolean;
   routeId: string | null;
+  /** Prix de la réservation (RoutePassenger) quand `metadata.routePassengerId` est présent — ex. demande chauffeur ou notif passager (accepté, démarré, terminé, etc.) */
+  passengerPrice?: number | null;
   metadata?: {
     routePassengerId?: string;
     [key: string]: unknown;

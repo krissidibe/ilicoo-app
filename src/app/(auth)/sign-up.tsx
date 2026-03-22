@@ -52,6 +52,7 @@ const signUpSchema = z.object({
   gender: z.enum(["male", "female"], {
     message: "Le genre est requis",
   }),
+  password: z.string().min(6, { message: "Le mot de passe doit contenir au moins 6 caractères" }),
 });
 
 type SignUpSchema = z.infer<typeof signUpSchema>;
@@ -89,6 +90,7 @@ const SignUp = () => {
       phoneDialCode: defaultCountry.dial,
       phoneNumber: "",
       gender: "male",
+      password: "",
     },
   });
 
@@ -158,7 +160,7 @@ const SignUp = () => {
         phoneDialCode: getValues("phoneDialCode"),
         gender: getValues("gender"),
         country: selectedCountry.code,
-        password: "password",
+        password: getValues("password"),
       });
       if (response?.error) {
         setOtpMessage(response.error.message ?? "Erreur lors de l'inscription");
@@ -286,6 +288,36 @@ const SignUp = () => {
                   {errors.email && (
                     <Text className="text-xs text-red-500">
                       {errors.email.message}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {method === "email" && (
+                <View className="gap-2 items-start">
+                  <Label className="text-base">Mot de passe</Label>
+                  <Controller
+                    name="password"
+                    control={control}
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <Input
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        placeholder="Mot de passe"
+                        secureTextEntry
+                        autoCapitalize="none"
+                        autoComplete="password-new"
+                        value={value}
+                        className={cn(
+                          "focus:border-primary",
+                          errors.password && "border-red-500",
+                        )}
+                      />
+                    )}
+                  />
+                  {errors.password && (
+                    <Text className="text-xs text-red-500">
+                      {errors.password.message}
                     </Text>
                   )}
                 </View>

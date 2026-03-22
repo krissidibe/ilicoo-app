@@ -22,6 +22,7 @@ export type UserApi = {
   permitPhoto?: string | null;
   permitPhotoBack?: string | null;
   identityPhoto?: string | null;
+  ratingsReceived?: { stars: number }[];
 };
 
 export type VehicleTypeApi = "CAR" | "MOTORCYCLE";
@@ -87,6 +88,7 @@ export type RoutePassengerApi = {
   userId: string;
   seats: number;
   status: RoutePassengerStatusApi;
+  price?: number | null;
   pickupLat?: number | null;
   pickupLng?: number | null;
   dropLat?: number | null;

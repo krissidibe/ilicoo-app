@@ -92,6 +92,22 @@ const quartiers: Quartier[] = [
 
 const formatPointLabel = (lat: number, lng: number) =>
   `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+/** Texte exact comme dans la liste de recherche Google (ligne cliquée). */
+const getPlaceDisplayNameFromAutocomplete = (
+  data: { description?: string },
+  details: { formatted_address?: string; name?: string } | null | undefined,
+  lat: number,
+  lng: number,
+): string => {
+  const fromRow = data.description?.trim();
+  if (fromRow) return fromRow;
+  return (
+    details?.formatted_address?.trim() ||
+    details?.name?.trim() ||
+    formatPointLabel(lat, lng)
+  );
+};
 const formatDate = (d: Date) =>
   d.toLocaleDateString("fr-FR", {
     weekday: "short",
@@ -282,12 +298,12 @@ const ShareRouteScreen = () => {
   };
 
   const setPointFromQuartier = async (q: Quartier) => {
-    const address = await getAddressFromCoordinates(q.latitude, q.longitude);
+    const displayName = q.name.trim();
     const pt: RoutePoint = {
       latitude: q.latitude,
       longitude: q.longitude,
-      label: formatPointLabel(q.latitude, q.longitude),
-      address,
+      label: displayName,
+      address: displayName,
     };
     setPendingPoint(pt);
     if (activeMapField === "depart" && arrival)
@@ -419,15 +435,20 @@ const ShareRouteScreen = () => {
             <GooglePlacesAutocomplete
               placeholder="Rechercher un lieu..."
               fetchDetails
-              onPress={(_data, details) => {
+              onPress={(data, details) => {
                 if (details?.geometry?.location) {
                   const { lat, lng } = details.geometry.location;
-                  const addr = details.formatted_address ?? details.name ?? "Lieu sélectionné";
+                  const displayName = getPlaceDisplayNameFromAutocomplete(
+                    data,
+                    details,
+                    lat,
+                    lng,
+                  );
                   const point: RoutePoint = {
                     latitude: lat,
                     longitude: lng,
-                    label: formatPointLabel(lat, lng),
-                    address: addr,
+                    label: displayName,
+                    address: displayName,
                   };
                   setPendingPoint(point);
                   mapRef.current?.animateToRegion({
@@ -442,7 +463,9 @@ const ShareRouteScreen = () => {
               debounce={400}
               minLength={2}
               listViewDisplayed="auto"
-              GooglePlacesDetailsQuery={{ fields: "geometry,formatted_address,name" }}
+              GooglePlacesDetailsQuery={{
+                fields: "geometry,formatted_address,name,address_components",
+              }}
               query={{
                 key: Constants.expoConfig?.extra?.googleMapsApiKey ?? "",
                 language: "fr",
@@ -482,17 +505,38 @@ const ShareRouteScreen = () => {
                 separator: { height: 1, backgroundColor: "#f3f4f6" },
               }}
               enablePoweredByContainer={false}
-              textInputProps={{ 
+              textInputProps={{
                 placeholderTextColor: "#9ca3af",
                 autoCorrect: false,
                 autoCapitalize: "none",
                 returnKeyType: "search",
+                onChangeText: (text: string) => setQuartierSearch(text),
               }}
               requestUrl={{
                 useOnPlatform: "all",
                 url: "https://maps.googleapis.com/maps/api",
               }}
             />
+            {quartierSearch.trim().length > 0 && filteredQuartiers.length > 0 ? (
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                className="mt-2 max-h-36"
+                nestedScrollEnabled
+              >
+                <Text className="mb-2 text-xs font-semibold text-white/90">
+                  Quartiers (nom exact enregistré)
+                </Text>
+                {filteredQuartiers.map((q) => (
+                  <TouchableOpacity
+                    key={q.id}
+                    onPress={() => void setPointFromQuartier(q)}
+                    className="py-2.5 border-b border-white/20"
+                  >
+                    <Text className="text-sm text-white">{q.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : null}
           </View>
         </View>
         <View className="flex-1">

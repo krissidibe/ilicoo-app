@@ -5,8 +5,10 @@ import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
 import { cn } from "@/src/lib/utils";
 import { getNotifications } from "@/src/services/notification.service";
+import { getReportedRouteIds } from "@/src/services/report.service";
+import { getPaymentsSummary } from "@/src/services/payment.service";
 import { queryKeys } from "@/src/services/queryKeys";
-import { createRating } from "@/src/services/rating.service";
+import { createRating, getRatedTripIds } from "@/src/services/rating.service";
 import {
   cancelMyTrip,
   getRoutePassengers,
@@ -14,10 +16,11 @@ import {
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as Burnt from "burnt";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import { ChevronRightIcon, SearchIcon } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -72,53 +75,6 @@ const statusConfig = (
   };
 };
 
-const TripRatingSection = ({
-  routeId,
-  toUserId,
-  driverName,
-  onRate,
-  isPending,
-}: {
-  routeId: string;
-  toUserId: string;
-  driverName: string;
-  onRate: (stars: number) => void;
-  isPending: boolean;
-}) => {
-  const [selectedStars, setSelectedStars] = React.useState(0);
-  const [submitted, setSubmitted] = React.useState(false);
-
-  return (
-    <View className="p-4 mt-4 bg-amber-50 rounded-2xl border border-amber-200">
-      <Text className="mb-2 text-xs font-semibold tracking-wide text-amber-700 uppercase">
-        Noter le chauffeur
-      </Text>
-      <Text className="mb-3 text-sm text-muted-foreground">
-        Comment était votre trajet avec {driverName} ?
-      </Text>
-      <View className="items-center">
-        <StarRating
-          rating={selectedStars}
-          size={32}
-          editable={!submitted}
-          onChange={(stars) => {
-            setSelectedStars(stars);
-            if (!submitted) {
-              setSubmitted(true);
-              onRate(stars);
-            }
-          }}
-        />
-        {submitted && (
-          <Text className="mt-2 text-xs font-medium text-amber-700">
-            Merci pour votre note !
-          </Text>
-        )}
-      </View>
-    </View>
-  );
-};
-
 const HomeScreen = () => {
   const isLoadingUser = false;
   const queryClient = useQueryClient();
@@ -133,7 +89,14 @@ const HomeScreen = () => {
     ...getNotifications(),
     refetchInterval: 5000,
   });
+  const { data: paymentsData } = useQuery({
+    ...getPaymentsSummary(),
+    refetchInterval: 5000,
+  });
   const unreadCount = notificationsData?.unreadCount ?? 0;
+
+  const [commissionPopupVisible, setCommissionPopupVisible] = useState(false);
+  const firstPendingPayment = paymentsData?.pendingPayments?.[0];
 
   const cancelMutation = useMutation({
     mutationFn: cancelMyTrip,
@@ -155,6 +118,7 @@ const HomeScreen = () => {
     mutationFn: createRating,
     onSuccess: () => {
       Alert.alert("Merci", "Votre note a été enregistrée !");
+      queryClient.invalidateQueries({ queryKey: queryKeys.routePassengers.all });
     },
     onError: (e) => {
       Alert.alert(
@@ -164,16 +128,83 @@ const HomeScreen = () => {
     },
   });
 
+  const [ratingPopupTrip, setRatingPopupTrip] = useState<RecentTrip | null>(
+    null,
+  );
+  const [ratingPopupStars, setRatingPopupStars] = useState(0);
+  const [ratingPopupSubmitted, setRatingPopupSubmitted] = useState(false);
+  const [ratingPopupConfirmed, setRatingPopupConfirmed] = useState(false);
+  /** Évite les courses async / fermeture bloquante par la modal commission (RN empile la 2e Modal au-dessus). */
+  const ratingPopupTripRef = useRef<RecentTrip | null>(null);
+  useEffect(() => {
+    ratingPopupTripRef.current = ratingPopupTrip;
+  }, [ratingPopupTrip]);
+
   useFocusEffect(
     useCallback(() => {
       queryClient.invalidateQueries({ queryKey: ["route-passengers"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["payments", "summary"] });
     }, [queryClient]),
   );
+
+  const prevUnreadRef = useRef(unreadCount);
+  useEffect(() => {
+    if (unreadCount > prevUnreadRef.current) {
+      Burnt.toast({
+        title: "Nouvelle notification",
+        message: "Vous avez une nouvelle notification",
+        preset: "done",
+        haptic: "success",
+      });
+    }
+    prevUnreadRef.current = unreadCount;
+  }, [unreadCount]);
+
+  useEffect(() => {
+    if (ratingPopupTrip !== null) {
+      setCommissionPopupVisible(false);
+      return;
+    }
+    if ((paymentsData?.pendingPayments?.length ?? 0) > 0) {
+      setCommissionPopupVisible(true);
+    }
+  }, [ratingPopupTrip, paymentsData?.pendingPayments?.length]);
 
   const displayedTrips: RecentTrip[] = (routePassengersData ?? [])
     .map((rp) => mapRoutePassengerToRecentTrip(rp, currentUser?.id))
     .slice(0, 3);
+
+  useEffect(() => {
+    if (!routePassengersData || routePassengersData.length === 0) return;
+    const allTrips = routePassengersData.map((rp) =>
+      mapRoutePassengerToRecentTrip(rp, currentUser?.id),
+    );
+    const completedUnrated = allTrips.filter(
+      (t) => t.status === "Termine" && t.driver?.id,
+    );
+    if (completedUnrated.length === 0) return;
+
+    (async () => {
+      const [ratedIds, reportedIds] = await Promise.all([
+        getRatedTripIds(),
+        getReportedRouteIds(),
+      ]);
+      const excluded = new Set([
+        ...ratedIds.map(String),
+        ...reportedIds.map(String),
+      ]);
+      const unrated = completedUnrated.find(
+        (t) => !excluded.has(String(t.id)),
+      );
+      if (unrated && !ratingPopupTripRef.current) {
+        setRatingPopupTrip(unrated);
+        setRatingPopupStars(0);
+        setRatingPopupSubmitted(false);
+        setRatingPopupConfirmed(false);
+      }
+    })();
+  }, [routePassengersData, currentUser?.id]);
 
   const callDriver = async (phone: string): Promise<void> => {
     const phoneUrl = `tel:${phone}`;
@@ -512,8 +543,8 @@ const HomeScreen = () => {
             </View>
           </View>
         )}
-
-        {trip.status === "Termine" && trip.driver?.id && (
+        {/* 
+        {trip.status === "Termine" && trip.driver?.id && false && (
           <TripRatingSection
             routeId={String(trip.id)}
             toUserId={trip.driver.id}
@@ -528,7 +559,7 @@ const HomeScreen = () => {
             isPending={ratingMutation.isPending}
           />
         )}
-
+ */}
         {trip.canCancel && trip.routePassengerId && (
           <TouchableOpacity
             onPress={() => {
@@ -568,48 +599,199 @@ const HomeScreen = () => {
 
   return (
     <>
-      {/* Modal de confirmation de paiement */}
+      {/* Commission en premier dans l'arbre ; la modal notation est rendue après pour rester au-dessus si besoin */}
+      {/* Popup optionnel: payer la commission — masquée tant que la notation trajet est affichée */}
       <Modal
-        visible={false}
+        visible={
+          commissionPopupVisible &&
+          firstPendingPayment != null &&
+          ratingPopupTrip === null
+        }
         transparent
-        animationType="slide"
-        // onRequestClose={() => setPaymentConfirmationVisible(false)}
+        animationType="fade"
+        onRequestClose={() => setCommissionPopupVisible(false)}
       >
-        <View className="flex-1 justify-center items-center bg-black/20">
-          <View className="p-6 w-[90%] max-w-md bg-white rounded-2xl items-center">
+        <View className="flex-1 justify-center items-center bg-black/50">
+          <View className="p-6 w-[90%] max-w-md bg-white rounded-3xl items-center">
             <MaterialCommunityIcons
-              name="check-circle-outline"
-              size={48}
-              color="#10b981"
+              name="cash-check"
+              size={52}
+              color="#6366f1"
               style={{ marginBottom: 12 }}
             />
-            <Text className="mb-2 text-lg font-bold text-emerald-700">
-              Trajet terminé
+            <Text className="mb-1 text-lg font-bold text-foreground">
+              Commission à payer
             </Text>
-            <Text className="text-base text-center text-muted-foreground">
-              Votre trajet a bien été terminé.
+            <Text className="mb-1 text-sm text-center text-muted-foreground">
+              Trajet terminé: {firstPendingPayment?.route.pickupAddress} →{" "}
+              {firstPendingPayment?.route.dropAddress}
             </Text>
-            <Text className="mb-6 text-base text-center text-muted-foreground">
-              Voulez vous confirmer le trajet ?
+            <Text className="mb-5 text-sm text-center text-muted-foreground">
+              Vous avez une commission de{" "}
+              {firstPendingPayment?.ilicoCommission.toLocaleString("fr-FR")}{" "}
+              FCFA en attente de paiement.
             </Text>
 
-            <View className="flex-row gap-2">
+            <View className="flex-row gap-3">
               <TouchableOpacity
-                className="px-5 py-2 bg-red-600 rounded-xl"
-                // onPress={() => setPaymentConfirmationVisible(false)}
+                onPress={() => setCommissionPopupVisible(false)}
+                className="px-5 py-2.5 rounded-xl border border-gray-300"
               >
-                <Text className="font-semibold text-white">Signaler</Text>
+                <Text className="text-sm font-semibold text-muted-foreground">
+                  Plus tard
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className="px-5 py-2 bg-emerald-600 rounded-xl"
-                // onPress={() => setPaymentConfirmationVisible(false)}
+                onPress={() => {
+                  setCommissionPopupVisible(false);
+                  router.push("/(stack)/payment" as any);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-primary"
               >
-                <Text className="font-semibold text-white">Confirmer</Text>
+                <Text className="text-sm font-semibold text-white">Payer</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* Popup bloquant: confirmation + notation après trajet terminé (au-dessus de la commission) */}
+      <Modal
+        visible={ratingPopupTrip !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View className="flex-1 justify-center items-center bg-black/50">
+          <View className="p-6 w-[90%] max-w-md bg-white rounded-3xl items-center">
+            <MaterialCommunityIcons
+              name="check-circle-outline"
+              size={52}
+              color="#10b981"
+              style={{ marginBottom: 12 }}
+            />
+            <Text className="mb-1 text-lg font-bold text-emerald-700">
+              Trajet terminé !
+            </Text>
+            <Text className="mb-1 text-sm text-center text-muted-foreground">
+              {ratingPopupTrip?.from} → {ratingPopupTrip?.to}
+            </Text>
+
+            {!ratingPopupConfirmed ? (
+              <>
+                <Text className="mb-6 text-sm text-center text-muted-foreground">
+                  Voulez-vous confirmer le trajet ?
+                </Text>
+                <View className="flex-row gap-3">
+                  <TouchableOpacity
+                    onPress={() => {
+                      const trip = ratingPopupTrip;
+                      setRatingPopupTrip(null);
+                      if (trip?.driver?.id) {
+                        router.push({
+                          pathname: "/(stack)/report",
+                          params: {
+                            routeId: String(trip.id),
+                            driverId: trip.driver.id,
+                            driverName: trip.driver.name,
+                            from: trip.from,
+                            to: trip.to,
+                          },
+                        } as any);
+                      }
+                    }}
+                    className="px-4 py-2.5 rounded-xl border border-red-300 bg-red-50"
+                  >
+                    <Text className="text-sm font-semibold text-red-600">
+                      Signaler
+                    </Text>
+                  </TouchableOpacity>
+                  {false && (
+                    <TouchableOpacity
+                      onPress={async () => {
+                        const { markTripAsRated } =
+                          await import("@/src/services/rating.service");
+                        await markTripAsRated(String(ratingPopupTrip?.id));
+                        setRatingPopupTrip(null);
+                      }}
+                      className="px-4 py-2.5 rounded-xl border border-gray-300"
+                    >
+                      <Text className="text-sm font-semibold text-muted-foreground">
+                        Plus tard
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    onPress={() => setRatingPopupConfirmed(true)}
+                    className="px-4 py-2.5 rounded-xl bg-emerald-600"
+                  >
+                    <Text className="text-sm font-semibold text-white">
+                      Confirmer
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text className="mb-5 text-sm text-center text-muted-foreground">
+                  Comment était votre trajet avec{" "}
+                  <Text className="font-semibold">
+                    {ratingPopupTrip?.driver?.name}
+                  </Text>{" "}
+                  ?
+                </Text>
+                <StarRating
+                  rating={ratingPopupStars}
+                  size={36}
+                  editable={!ratingPopupSubmitted}
+                  onChange={(stars) => {
+                    setRatingPopupStars(stars);
+                    if (!ratingPopupSubmitted && ratingPopupTrip?.driver?.id) {
+                      setRatingPopupSubmitted(true);
+                      ratingMutation.mutate(
+                        {
+                          routeId: String(ratingPopupTrip.id),
+                          toUserId: ratingPopupTrip.driver.id,
+                          stars,
+                        },
+                        {
+                          onSuccess: () => {
+                            setTimeout(() => setRatingPopupTrip(null), 1200);
+                          },
+                          onError: () => {
+                            setRatingPopupSubmitted(false);
+                          },
+                        },
+                      );
+                    }
+                  }}
+                />
+                {ratingPopupSubmitted && (
+                  <Text className="mt-3 text-sm font-medium text-emerald-600">
+                    Merci pour votre note !
+                  </Text>
+                )}
+                {!ratingPopupSubmitted && (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      const { markTripAsRated } =
+                        await import("@/src/services/rating.service");
+                      await markTripAsRated(String(ratingPopupTrip?.id));
+                      setRatingPopupTrip(null);
+                    }}
+                    className="mt-4"
+                  >
+                    <Text className="text-xs underline text-muted-foreground">
+                      Passer
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       <View className="flex-1 bg-background">
         <Animated.View
           entering={FadeIn.duration(500)}

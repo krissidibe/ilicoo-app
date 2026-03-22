@@ -1,5 +1,6 @@
 import { apiFetch } from "./apiFetch";
 import { queryOptions } from "@tanstack/react-query";
+import * as SecureStore from "expo-secure-store";
 
 type RatingApi = {
   id: string;
@@ -56,5 +57,25 @@ export const createRating = async (params: CreateRatingParams) => {
   if (!json.success || json.data === undefined) {
     throw new Error((json as { error?: string }).error ?? "Erreur API");
   }
+  await markTripAsRated(params.routeId);
   return json.data;
+};
+
+const RATED_TRIPS_KEY = "ilicoo_rated_trips";
+
+export const getRatedTripIds = async (): Promise<string[]> => {
+  try {
+    const stored = await SecureStore.getItemAsync(RATED_TRIPS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const markTripAsRated = async (routeId: string): Promise<void> => {
+  const ids = await getRatedTripIds();
+  if (!ids.includes(routeId)) {
+    ids.push(routeId);
+    await SecureStore.setItemAsync(RATED_TRIPS_KEY, JSON.stringify(ids));
+  }
 };

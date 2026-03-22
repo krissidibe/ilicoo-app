@@ -1,18 +1,20 @@
+import { RouteMapView } from "@/src/components/Map/RouteMapView";
 import StarRating from "@/src/components/StarRating";
 import { Text } from "@/src/components/ui/text";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
+import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
 import { cn } from "@/src/lib/utils";
 import { createRating } from "@/src/services/rating.service";
 import {
+  cancelMyTrip,
   getRoutePassengers,
-  updateRoutePassengerStatus,
 } from "@/src/services/routePassenger.service";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -64,12 +66,14 @@ const statusConfig = (
   };
 };
 
-const RatingSection = ({
+const TripRatingSection = ({
   driverName,
   onRate,
+  isPending,
 }: {
   driverName: string;
   onRate: (stars: number) => void;
+  isPending: boolean;
 }) => {
   const [selectedStars, setSelectedStars] = React.useState(0);
   const [submitted, setSubmitted] = React.useState(false);
@@ -107,14 +111,22 @@ const RatingSection = ({
 
 const RecentTripsScreen = () => {
   const [activeTab, setActiveTab] = React.useState<TripTab>("Avenir");
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const { open, close } = useBottomSheetStore();
   const queryClient = useQueryClient();
 
   const { data: routePassengersData, isLoading } =
     useQuery(getRoutePassengers());
 
-  const allTrips: RecentTrip[] = (routePassengersData ?? []).map(
-    mapRoutePassengerToRecentTrip,
+  useEffect(() => {
+    (async () => {
+      const user = await getUser();
+      setCurrentUser(user);
+    })();
+  }, []);
+
+  const allTrips: RecentTrip[] = (routePassengersData ?? []).map((rp) =>
+    mapRoutePassengerToRecentTrip(rp, currentUser?.id),
   );
 
   const filteredTrips = React.useMemo(() => {
@@ -123,10 +135,16 @@ const RecentTripsScreen = () => {
   }, [allTrips, activeTab]);
 
   const cancelMutation = useMutation({
-    mutationFn: (rpId: string) => updateRoutePassengerStatus(rpId, "CANCELLED"),
+    mutationFn: cancelMyTrip,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["route-passengers"] });
       close();
+    },
+    onError: (e) => {
+      Alert.alert(
+        "Erreur",
+        e instanceof Error ? e.message : "Impossible d'annuler",
+      );
     },
   });
 
@@ -149,43 +167,79 @@ const RecentTripsScreen = () => {
     if (canOpen) await Linking.openURL(phoneUrl);
   };
 
+  const openMapSheet = (trip: RecentTrip): void => {
+    const driverLat = trip.pickupLat ?? 0;
+    const driverLng = trip.pickupLng ?? 0;
+    const driverDropLat = trip.dropLat ?? 0;
+    const driverDropLng = trip.dropLng ?? 0;
+    if (
+      driverLat === 0 ||
+      driverLng === 0 ||
+      driverDropLat === 0 ||
+      driverDropLng === 0
+    )
+      return;
+
+    const myInfo = trip.myPassengerInfo;
+    const hasMyRoute =
+      myInfo?.pickupLat != null &&
+      myInfo?.pickupLng != null &&
+      myInfo?.dropLat != null &&
+      myInfo?.dropLng != null;
+
+    open(
+      <View className="flex-1">
+        <View className="flex-row justify-between items-center px-5 py-3 border-b border-gray-200">
+          <Text className="text-base font-semibold">
+            Itinéraire sur la carte
+          </Text>
+          <TouchableOpacity onPress={close} className="p-2">
+            <MaterialCommunityIcons name="close" size={24} color="#64748b" />
+          </TouchableOpacity>
+        </View>
+        <RouteMapView
+          pickupLat={driverLat}
+          pickupLng={driverLng}
+          dropLat={driverDropLat}
+          dropLng={driverDropLng}
+          pickupTitle="Départ chauffeur"
+          dropTitle="Arrivée chauffeur"
+          strokeColor="#0ea5e9"
+          secondaryRoute={
+            hasMyRoute
+              ? {
+                  pickupLat: myInfo!.pickupLat!,
+                  pickupLng: myInfo!.pickupLng!,
+                  dropLat: myInfo!.dropLat!,
+                  dropLng: myInfo!.dropLng!,
+                  pickupTitle: "Mon départ",
+                  dropTitle: "Mon arrivée",
+                  strokeColor: "#7c3aed",
+                }
+              : undefined
+          }
+        />
+      </View>,
+      ["70%"],
+    );
+  };
+
   const openTripDetails = (trip: RecentTrip): void => {
     const statusStyle = statusConfig(trip.status);
     const myInfo = trip.myPassengerInfo;
 
-    const passengerStatus = myInfo?.passengerStatus;
-    const passengerStatusStyle =
-      passengerStatus === "Confirmé"
-        ? {
-            color: "bg-emerald-500/15 text-emerald-600",
-            iconColor: "#059669",
-            icon: "check-circle-outline" as const,
-          }
-        : passengerStatus === "Refusé" || passengerStatus === "Annulé"
-          ? {
-              color: "bg-red-500/15 text-red-600",
-              iconColor: "#dc2626",
-              icon: "close-circle-outline" as const,
-            }
-          : passengerStatus === "Terminé"
-            ? {
-                color: "bg-blue-500/15 text-blue-600",
-                iconColor: "#2563eb",
-                icon: "check-circle-outline" as const,
-              }
-            : {
-                color: "bg-amber-500/15 text-amber-600",
-                iconColor: "#d97706",
-                icon: "timer-outline" as const,
-              };
-
     open(
       <View className="px-5 pt-2 pb-7">
-        <Text className="text-lg font-bold text-foreground">
-          Détails du trajet
-        </Text>
+        <View className="flex-row justify-between items-center">
+          <Text className="text-lg font-bold text-foreground">
+            Détails du trajet
+          </Text>
+        </View>
 
         <View className="p-4 mt-4 bg-white rounded-2xl border border-gray-300">
+          <Text className="mb-3 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+            Trajet du chauffeur
+          </Text>
           <View className="flex-row justify-between items-center mb-3">
             <View className="flex-row flex-1 items-center pr-3">
               <View className="p-2 mr-2 rounded-full bg-blue-500/10">
@@ -207,16 +261,20 @@ const RecentTripsScreen = () => {
                 </Text>
               </View>
             </View>
-            <View
-              className={`flex-row items-center rounded-full px-2 py-1 ${statusStyle.statusColor}`}
-            >
-              <MaterialCommunityIcons
-                name={statusStyle.icon}
-                size={14}
-                color={statusStyle.statusIconColor}
-              />
-              <Text className="ml-1 text-xs font-semibold">{trip.status}</Text>
-            </View>
+            {false && (
+              <View
+                className={`flex-row items-center rounded-full px-2 py-1 ${statusStyle.statusColor}`}
+              >
+                <MaterialCommunityIcons
+                  name={statusStyle.icon}
+                  size={14}
+                  color={statusStyle.statusIconColor}
+                />
+                <Text className="ml-1 text-xs font-semibold">
+                  {trip.status}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View className="flex-row items-center mb-3">
@@ -253,8 +311,27 @@ const RecentTripsScreen = () => {
             </View>
           </View>
 
+          {trip.pickupLat != null && trip.dropLat != null && (
+            <TouchableOpacity
+              onPress={() => {
+                close();
+                openMapSheet(trip);
+              }}
+              className="flex-row gap-2 justify-center items-center py-3 mt-3 rounded-xl border border-primary bg-primary/10"
+            >
+              <MaterialCommunityIcons
+                name="map-marker-path"
+                size={18}
+                color="#6366f1"
+              />
+              <Text className="text-sm font-semibold text-primary">
+                Voir l&apos;itinéraire sur la carte
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {trip.driver && (
-            <View className="flex-row justify-between items-center px-3 py-2 mt-3 rounded-xl border border-gray-300">
+            <View className="flex-row justify-between items-center px-3 py-2 mt-4 rounded-xl border border-gray-300">
               <View className="flex-row items-center">
                 <View className="p-2 mr-2 rounded-full bg-primary/10">
                   <MaterialCommunityIcons
@@ -365,6 +442,18 @@ const RecentTripsScreen = () => {
                 Places réservées: {myInfo.seats ?? 1}
               </Text>
             </View>
+            {trip.distanceKm != null && (
+              <View className="flex-row items-center mt-2">
+                <MaterialCommunityIcons
+                  name="map-marker-distance"
+                  size={14}
+                  color="#f97316"
+                />
+                <Text className="ml-1 text-xs font-semibold text-orange-600">
+                  Distance: {trip.distanceKm.toFixed(1)} km
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -389,7 +478,7 @@ const RecentTripsScreen = () => {
         )}
 
         {trip.status === "Termine" && trip.driver?.id && (
-          <RatingSection
+          <TripRatingSection
             driverName={trip.driver.name}
             onRate={(stars) =>
               ratingMutation.mutate({
@@ -398,6 +487,7 @@ const RecentTripsScreen = () => {
                 stars,
               })
             }
+            isPending={ratingMutation.isPending}
           />
         )}
 
@@ -518,7 +608,7 @@ const RecentTripsScreen = () => {
 
               return (
                 <Animated.View
-                  key={trip.id + index}
+                  key={trip.id + String(index)}
                   entering={FadeInDown.delay(100 + index * 80).duration(350)}
                 >
                   <TouchableOpacity
@@ -592,7 +682,8 @@ const RecentTripsScreen = () => {
                           color="#9ca3af"
                         />
                         <Text className="ml-1 text-xs text-muted-foreground">
-                          {trip.date}
+                          {trip.myPassengerInfo?.date}{" "}
+                          {trip.myPassengerInfo?.time}
                         </Text>
                       </View>
                       <View className="flex-row items-center">
