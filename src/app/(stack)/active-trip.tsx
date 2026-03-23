@@ -1,3 +1,4 @@
+import { RoutePolyline } from "@/src/components/Map/RoutePolyline";
 import {
   Avatar,
   AvatarFallback,
@@ -5,16 +6,24 @@ import {
 } from "@/src/components/ui/avatar";
 import { Button } from "@/src/components/ui/button";
 import { Text } from "@/src/components/ui/text";
-import { RoutePolyline } from "@/src/components/Map/RoutePolyline";
-import type { MyPublishedTrip, PassengerRequest } from "@/src/data/myPublishedTrips";
+import type {
+  MyPublishedTrip,
+  PassengerRequest,
+} from "@/src/data/myPublishedTrips";
 import { mapRouteToMyPublishedTrip } from "@/src/lib/mappers";
-import { getMyRoutes, updateRouteStatus } from "@/src/services/route.service";
 import { queryKeys } from "@/src/services/queryKeys";
+import { getMyRoutes, updateRouteStatus } from "@/src/services/route.service";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,7 +35,13 @@ import {
 } from "react-native";
 import MapView, { type LatLng, Marker } from "react-native-maps";
 
-const PASSENGER_COLORS = ["#059669", "#7c3aed", "#ea580c", "#0d9488", "#e11d48"];
+const PASSENGER_COLORS = [
+  "#059669",
+  "#7c3aed",
+  "#ea580c",
+  "#0d9488",
+  "#e11d48",
+];
 
 /** Padding carte : header + bandeau passagers + boutons (zoom sur la zone utile). */
 const MAP_EDGE_PADDING = {
@@ -44,7 +59,8 @@ const ActiveTripScreen = () => {
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [selectedPassenger, setSelectedPassenger] = useState<PassengerRequest | null>(null);
+  const [selectedPassenger, setSelectedPassenger] =
+    useState<PassengerRequest | null>(null);
 
   const { data: routesData, isLoading: isLoadingRoutes } = useQuery({
     ...getMyRoutes(),
@@ -110,7 +126,8 @@ const ActiveTripScreen = () => {
   /** Un seul recentrage quand la position GPS est disponible (inclut le chauffeur dans le cadre). */
   const driverIncludedInFitRef = useRef(false);
   useEffect(() => {
-    if (!driverLocation || driverIncludedInFitRef.current || !mapRef.current) return;
+    if (!driverLocation || driverIncludedInFitRef.current || !mapRef.current)
+      return;
     if (coordinatesForFit.length === 0) return;
     driverIncludedInFitRef.current = true;
     const combined = [...coordinatesForFit, driverLocation];
@@ -134,7 +151,10 @@ const ActiveTripScreen = () => {
       goToDriverTab();
     },
     onError: (e) => {
-      Alert.alert("Erreur", e instanceof Error ? e.message : "Impossible de terminer");
+      Alert.alert(
+        "Erreur",
+        e instanceof Error ? e.message : "Impossible de terminer",
+      );
     },
   });
 
@@ -146,7 +166,10 @@ const ActiveTripScreen = () => {
       goToDriverTab();
     },
     onError: (e) => {
-      Alert.alert("Erreur", e instanceof Error ? e.message : "Impossible d'annuler");
+      Alert.alert(
+        "Erreur",
+        e instanceof Error ? e.message : "Impossible d'annuler",
+      );
     },
   });
 
@@ -180,7 +203,11 @@ const ActiveTripScreen = () => {
         longitude: loc.coords.longitude,
       });
       subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, distanceInterval: 20, timeInterval: 5000 },
+        {
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 20,
+          timeInterval: 5000,
+        },
         (loc) => {
           setDriverLocation({
             latitude: loc.coords.latitude,
@@ -243,7 +270,7 @@ const ActiveTripScreen = () => {
 
   if (!trip) {
     return (
-      <View className="flex-1 justify-center items-center bg-background px-6">
+      <View className="flex-1 justify-center items-center px-6 bg-background">
         <Text className="mb-4 text-center text-muted-foreground">
           Trajet introuvable ou déjà terminé.
         </Text>
@@ -258,7 +285,9 @@ const ActiveTripScreen = () => {
     return null;
   }
 
-  const acceptedPassengers = trip.passengers.filter((p) => p.status === "ACCEPTED");
+  const acceptedPassengers = trip.passengers.filter(
+    (p) => p.status === "ACCEPTED",
+  );
 
   const initialRegionFallback =
     coordinatesForFit.length > 0
@@ -292,7 +321,10 @@ const ActiveTripScreen = () => {
         >
           {trip.pickupLat != null && trip.pickupLng != null && (
             <Marker
-              coordinate={{ latitude: trip.pickupLat, longitude: trip.pickupLng }}
+              coordinate={{
+                latitude: trip.pickupLat,
+                longitude: trip.pickupLng,
+              }}
               title="Départ"
               pinColor="#2563eb"
             />
@@ -314,42 +346,51 @@ const ActiveTripScreen = () => {
               strokeWidth={5}
             />
           )}
-          {acceptedPassengers.map((p, i) => {
-            const color = PASSENGER_COLORS[i % PASSENGER_COLORS.length];
-            return (
-              <React.Fragment key={p.id}>
-                {p.pickupLat != null && p.pickupLng != null && (
-                  <Marker
-                    coordinate={{ latitude: p.pickupLat!, longitude: p.pickupLng! }}
-                    title={`${p.name} (prise en charge)`}
-                    pinColor={color}
-                    onPress={() => setSelectedPassenger(p)}
-                  />
-                )}
-                {p.dropLat != null && p.dropLng != null && (
-                  <Marker
-                    coordinate={{ latitude: p.dropLat!, longitude: p.dropLng! }}
-                    title={`${p.name} (dépose)`}
-                    pinColor={color}
-                    opacity={0.6}
-                  />
-                )}
-              </React.Fragment>
-            );
-          })}
+          {false &&
+            acceptedPassengers.map((p, i) => {
+              const color = PASSENGER_COLORS[i % PASSENGER_COLORS.length];
+              return (
+                <React.Fragment key={p.id}>
+                  {p.pickupLat != null && p.pickupLng != null && (
+                    <Marker
+                      coordinate={{
+                        latitude: p.pickupLat!,
+                        longitude: p.pickupLng!,
+                      }}
+                      title={`${p.name} (prise en charge)`}
+                      pinColor={color}
+                      onPress={() => setSelectedPassenger(p)}
+                    />
+                  )}
+                  {p.dropLat != null && p.dropLng != null && (
+                    <Marker
+                      coordinate={{
+                        latitude: p.dropLat!,
+                        longitude: p.dropLng!,
+                      }}
+                      title={`${p.name} (dépose)`}
+                      pinColor={color}
+                      opacity={0.6}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
         </MapView>
 
         <View className="absolute top-0 right-0 left-0 pt-safe">
           <View className="flex-row justify-center items-center px-5 py-3">
-            <View className="px-4 py-2 rounded-full bg-blue-600 shadow-md">
-              <Text className="text-xs font-bold text-white">Trajet en cours</Text>
+            <View className="px-4 py-2 bg-blue-600 rounded-full shadow-md">
+              <Text className="text-xs font-bold text-white">
+                Trajet en cours
+              </Text>
             </View>
           </View>
         </View>
       </View>
 
       {selectedPassenger && (
-        <View className="absolute right-4 bottom-48 left-4 p-4 bg-white rounded-2xl shadow-lg border border-gray-200">
+        <View className="absolute right-4 left-4 bottom-48 p-4 bg-white rounded-2xl border border-gray-200 shadow-lg">
           <View className="flex-row items-center">
             <Avatar className="size-12" alt={selectedPassenger.name}>
               <AvatarImage source={{ uri: selectedPassenger.image }} />
@@ -358,12 +399,17 @@ const ActiveTripScreen = () => {
               </AvatarFallback>
             </Avatar>
             <View className="flex-1 ml-3">
-              <Text className="text-sm font-bold">{selectedPassenger.name}</Text>
+              <Text className="text-sm font-bold">
+                {selectedPassenger.name}
+              </Text>
               <Text className="text-xs text-muted-foreground">
                 {selectedPassenger.seats} place(s) • {selectedPassenger.rating}★
               </Text>
               {selectedPassenger.pickupAddress && (
-                <Text className="text-[11px] text-muted-foreground mt-0.5" numberOfLines={1}>
+                <Text
+                  className="text-[11px] text-muted-foreground mt-0.5"
+                  numberOfLines={1}
+                >
                   Prise en charge: {selectedPassenger.pickupAddress}
                 </Text>
               )}
@@ -388,7 +434,7 @@ const ActiveTripScreen = () => {
         </View>
       )}
 
-      <View className="border-t border-gray-200 bg-white">
+      <View className="bg-white border-t border-gray-200">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -398,9 +444,13 @@ const ActiveTripScreen = () => {
           {acceptedPassengers.map((p, i) => (
             <TouchableOpacity
               key={p.id}
-              onPress={() => setSelectedPassenger(selectedPassenger?.id === p.id ? null : p)}
+              onPress={() =>
+                setSelectedPassenger(selectedPassenger?.id === p.id ? null : p)
+              }
               className={`flex-row items-center p-3 rounded-xl border min-w-[160px] ${
-                selectedPassenger?.id === p.id ? "border-primary bg-primary/5" : "border-gray-200 bg-gray-50"
+                selectedPassenger?.id === p.id
+                  ? "border-primary bg-primary/5"
+                  : "border-gray-200 bg-gray-50"
               }`}
             >
               <Avatar className="size-9" alt={p.name}>
@@ -410,8 +460,12 @@ const ActiveTripScreen = () => {
                 </AvatarFallback>
               </Avatar>
               <View className="flex-1 ml-2">
-                <Text className="text-xs font-semibold" numberOfLines={1}>{p.name}</Text>
-                <Text className="text-[10px] text-muted-foreground">{p.seats} place(s)</Text>
+                <Text className="text-xs font-semibold" numberOfLines={1}>
+                  {p.name}
+                </Text>
+                <Text className="text-[10px] text-muted-foreground">
+                  {p.seats} place(s)
+                </Text>
               </View>
               {p.phone && (
                 <TouchableOpacity
@@ -427,30 +481,48 @@ const ActiveTripScreen = () => {
 
         <View className="gap-2 px-5 pb-5">
           <Button
-            className="w-full rounded-xl bg-red-600"
+            className="mb-10 w-full rounded-xl bg-primary"
             onPress={handleComplete}
-            disabled={completeTripMutation.isPending || cancelTripMutation.isPending}
+            disabled={
+              completeTripMutation.isPending || cancelTripMutation.isPending
+            }
           >
-            <View className="flex-row items-center gap-2">
-              <MaterialCommunityIcons name="flag-checkered" size={18} color="white" />
+            <View className="flex-row gap-2 items-center">
+              <MaterialCommunityIcons
+                name="flag-checkered"
+                size={18}
+                color="white"
+              />
               <Text className="font-bold text-white">
-                {completeTripMutation.isPending ? "Terminaison..." : "Terminer le trajet"}
+                {completeTripMutation.isPending
+                  ? "Terminaison..."
+                  : "Terminer le trajet"}
               </Text>
             </View>
           </Button>
-          <Button
-            variant="outline"
-            className="w-full rounded-xl border-destructive"
-            onPress={handleCancelTrip}
-            disabled={completeTripMutation.isPending || cancelTripMutation.isPending}
-          >
-            <View className="flex-row items-center gap-2">
-              <MaterialCommunityIcons name="close-circle-outline" size={18} color="#dc2626" />
-              <Text className="font-bold text-destructive">
-                {cancelTripMutation.isPending ? "Annulation..." : "Annuler le trajet"}
-              </Text>
-            </View>
-          </Button>
+          {false && (
+            <Button
+              variant="outline"
+              className="w-full rounded-xl border-destructive"
+              onPress={handleCancelTrip}
+              disabled={
+                completeTripMutation.isPending || cancelTripMutation.isPending
+              }
+            >
+              <View className="flex-row gap-2 items-center">
+                <MaterialCommunityIcons
+                  name="close-circle-outline"
+                  size={18}
+                  color="#dc2626"
+                />
+                <Text className="font-bold text-destructive">
+                  {cancelTripMutation.isPending
+                    ? "Annulation..."
+                    : "Annuler le trajet"}
+                </Text>
+              </View>
+            </Button>
+          )}
         </View>
       </View>
     </View>

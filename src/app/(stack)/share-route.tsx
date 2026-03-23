@@ -5,7 +5,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/src/components/ui/card";
-import { Input } from "@/src/components/ui/input";
 import { Text } from "@/src/components/ui/text";
 import { cn, roundUpToNearest10 } from "@/src/lib/utils";
 import { createRoute } from "@/src/services/route.service";
@@ -15,9 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
-import Constants from "expo-constants";
 import { useQuery } from "@tanstack/react-query";
+import Constants from "expo-constants";
 import { router } from "expo-router";
 import React from "react";
 import {
@@ -28,6 +26,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import MapView, {
   Marker,
   Polyline,
@@ -485,7 +484,12 @@ const ShareRouteScreen = () => {
                   borderWidth: 1,
                   borderColor: "#e5e7eb",
                   ...Platform.select({
-                    ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+                    ios: {
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 4,
+                    },
                     android: { elevation: 3 },
                   }),
                 },
@@ -496,7 +500,12 @@ const ShareRouteScreen = () => {
                   position: "absolute",
                   top: 48,
                   ...Platform.select({
-                    ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 },
+                    ios: {
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.15,
+                      shadowRadius: 8,
+                    },
                     android: { elevation: 5 },
                   }),
                 },
@@ -517,7 +526,8 @@ const ShareRouteScreen = () => {
                 url: "https://maps.googleapis.com/maps/api",
               }}
             />
-            {quartierSearch.trim().length > 0 && filteredQuartiers.length > 0 ? (
+            {quartierSearch.trim().length > 0 &&
+            filteredQuartiers.length > 0 ? (
               <ScrollView
                 keyboardShouldPersistTaps="handled"
                 className="mt-2 max-h-36"
@@ -949,7 +959,7 @@ const ShareRouteScreen = () => {
                     <Ionicons name="add" size={24} color="#6366f1" />
                   </TouchableOpacity>
                 </View>
-                <View className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10">
+                <View className="relative p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10">
                   <View className="flex-row gap-2 items-center">
                     <Ionicons name="cash-outline" size={18} color="#059669" />
                     <Text className="text-xs text-emerald-700">
@@ -962,6 +972,21 @@ const ShareRouteScreen = () => {
                     )}{" "}
                     FCFA
                   </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Alert.alert(
+                        "Prix estimé",
+                        "C’est le prix d’une réservation pour une personne. Ce prix peut être différent si la réservation contient plusieurs personnes",
+                      );
+                    }}
+                    className="absolute top-2 right-4"
+                  >
+                    <Ionicons
+                      name="information-circle"
+                      size={30}
+                      color="#059669"
+                    />
+                  </TouchableOpacity>
                 </View>
                 <View className="flex-row gap-2 mt-2">
                   <Button

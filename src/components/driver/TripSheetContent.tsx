@@ -440,40 +440,42 @@ export const TripSheetContent = ({
 
       {(trip.status === "En attente" || trip.status === "En cours") &&
         !hideRouteActions && (
-        <View className="flex-row gap-2 mt-4">
-          {trip.status === "En attente" ? (
+          <View className="flex-row gap-2 mt-4">
+            {trip.status === "En attente" ? (
+              <Button
+                className="flex-1 rounded-xl"
+                onPress={() => onStartTrip(trip.id)}
+                disabled={
+                  isRouteStatusPending || acceptedPassengers.length === 0
+                }
+              >
+                <Text>Démarrer le trajet</Text>
+              </Button>
+            ) : trip.status === "En cours" ? (
+              <Button
+                className="flex-1 rounded-xl"
+                onPress={() => onCompleteTrip(trip.id)}
+                disabled={isRouteStatusPending}
+              >
+                <Text>Terminer le trajet</Text>
+              </Button>
+            ) : null}
             <Button
-              className="flex-1 rounded-xl"
-              onPress={() => onStartTrip(trip.id)}
-              disabled={isRouteStatusPending || acceptedPassengers.length === 0}
-            >
-              <Text>Démarrer le trajet</Text>
-            </Button>
-          ) : trip.status === "En cours" ? (
-            <Button
-              className="flex-1 rounded-xl"
-              onPress={() => onCompleteTrip(trip.id)}
+              variant="outline"
+              className="rounded-xl"
+              onPress={() => onCancelTrip(trip.id)}
               disabled={isRouteStatusPending}
             >
-              <Text>Terminer le trajet</Text>
+              <Text>Annuler</Text>
             </Button>
-          ) : null}
-          <Button
-            variant="outline"
-            className="rounded-xl"
-            onPress={() => onCancelTrip(trip.id)}
-            disabled={isRouteStatusPending}
-          >
-            <Text>Annuler</Text>
-          </Button>
-        </View>
-      )}
+          </View>
+        )}
 
       {acceptedPassengers.length > 0 && (
         <View className="mt-4">
           <View className="flex-row justify-between items-center mb-2">
             <Text className="text-sm font-semibold text-foreground">
-              Passagers acceptés
+              Demandes acceptées
             </Text>
             <TouchableOpacity
               onPress={() => {

@@ -334,7 +334,7 @@ const NotificationsScreen = () => {
             {passengerPriceLabel ? (
               <Text className="mt-2 text-[11px] text-muted-foreground text-right">
                 {isRideRequestDriver
-                  ? "Prix pour cette demande (passager)"
+                  ? "Prix pour cette demande"
                   : "Prix de votre réservation"}
               </Text>
             ) : null}
