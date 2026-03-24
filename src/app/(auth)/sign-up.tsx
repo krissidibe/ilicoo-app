@@ -52,7 +52,9 @@ const signUpSchema = z.object({
   gender: z.enum(["male", "female"], {
     message: "Le genre est requis",
   }),
-  password: z.string().min(6, { message: "Le mot de passe doit contenir au moins 6 caractères" }),
+  password: z
+    .string()
+    .min(6, { message: "Le mot de passe doit contenir au moins 6 caractères" }),
 });
 
 type SignUpSchema = z.infer<typeof signUpSchema>;
@@ -62,7 +64,7 @@ type SignUpMethod = "google" | "apple" | "email";
 const SignUp = () => {
   const defaultCountry: CountryCode = useMemo(
     () =>
-      countryCodes.find((country) => country.code === "FR") ?? countryCodes[0],
+      countryCodes.find((country) => country.code === "ML") ?? countryCodes[0],
     [],
   );
   const countryCodeSheetRef = useRef<CountryCodeSheetRef>(null);

@@ -17,7 +17,6 @@ import HeaderApp from "@/src/components/Header/HeaderApp";
 import { cn } from "@/src/lib/utils";
 import { getUser, updateProfile, type UpdateProfilePayload } from "@/src/services/user.service";
 import { queryKeys } from "@/src/services/queryKeys";
-import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Label } from "@react-navigation/elements";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -52,6 +51,12 @@ const editProfileSchema = z.object({
 });
 
 type EditProfileSchema = z.infer<typeof editProfileSchema>;
+
+function genderToOption(gender: "male" | "female"): Option {
+  return gender === "female"
+    ? { value: "female", label: "Femme" }
+    : { value: "male", label: "Homme" };
+}
 
 const EditProfileScreen = () => {
   const defaultCountry: CountryCode = useMemo(
@@ -169,7 +174,7 @@ const EditProfileScreen = () => {
                 className="bg-muted/50 text-muted-foreground"
               />
               <Text className="text-xs text-muted-foreground">
-                L'email ne peut pas être modifié
+                L&apos;email ne peut pas être modifié
               </Text>
             </View>
 
@@ -261,7 +266,7 @@ const EditProfileScreen = () => {
               <Label className="text-base">Genre</Label>
               <Select
                 className="w-full"
-                value={watch("gender")}
+                value={genderToOption(watch("gender"))}
                 onValueChange={handleGenderChange}
               >
                 <SelectTrigger className="w-full">

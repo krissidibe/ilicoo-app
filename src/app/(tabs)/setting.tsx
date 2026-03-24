@@ -1,4 +1,3 @@
-import HeaderApp from "@/src/components/Header/HeaderApp";
 import StarRating from "@/src/components/StarRating";
 import {
   Avatar,
@@ -78,8 +77,8 @@ const Setting = () => {
   });
 
   return (
-    <View className="flex-1 bg-background">
-      <HeaderApp title="Paramètres" />
+    <View className="flex-1 bg-background pt-safe">
+      {/*   <HeaderApp title="Paramètres" /> */}
 
       <ScrollView
         className="flex-1"
@@ -89,52 +88,83 @@ const Setting = () => {
         {/* Profile card */}
         <Animated.View
           entering={FadeInDown.duration(400)}
-          className="overflow-hidden p-5 mb-6 rounded-3xl border border-gray-100 shadow-sm"
+          className="overflow-hidden mb-6 bg-white rounded-xl border shadow-xl border-primary/15 shadow-primary/10"
         >
-          <View className="flex-row items-center">
-            {isLoading ? (
+          {isLoading ? (
+            <View className="justify-center items-center py-14">
               <ActivityIndicator size="small" color="#6366f1" />
-            ) : (
-              <>
-                <Avatar
-                  className="rounded-2xl border-2 size-16 border-white/30"
-                  alt={user?.name ?? "User"}
-                >
-                  <AvatarImage source={{ uri: user?.image ?? undefined }} />
-                  <AvatarFallback>
-                    <Text className="text-xl font-bold">
-                      {user?.name?.slice(0, 2).toUpperCase() ?? "U"}
+            </View>
+          ) : (
+            <>
+              <View className="relative px-5 pt-6 pb-5 bg-primary">
+                <View className="absolute -right-8 -top-10 bg-white rounded-full opacity-10 size-40" />
+                <View className="absolute -left-4 -bottom-6 bg-white rounded-full opacity-10 size-24" />
+                <View className="flex-row items-center">
+                  <View className="shadow-black/25">
+                    <Avatar
+                      className="rounded-3xl size-18"
+                      alt={user?.name ?? "User"}
+                    >
+                      <AvatarImage source={{ uri: user?.image ?? undefined }} />
+                      <AvatarFallback>
+                        <Text className="text-2xl font-bold text-primary">
+                          {user?.name?.slice(0, 2).toUpperCase() ?? "U"}
+                        </Text>
+                      </AvatarFallback>
+                    </Avatar>
+                  </View>
+                  <View className="flex-1 pl-4 min-w-0">
+                    <Text
+                      className="text-xl font-bold text-white"
+                      numberOfLines={2}
+                    >
+                      {user?.name ?? "Utilisateur"}
                     </Text>
-                  </AvatarFallback>
-                </Avatar>
-                <View className="flex-1 ml-4">
-                  <Text className="text-lg font-bold">
-                    {user?.name ?? "Utilisateur"}
-                  </Text>
-                  <Text className="text-sm mt-0.5">{user?.email ?? ""}</Text>
-                  {ratingsData && ratingsData.totalRatings > 0 && (
-                    <View className="flex-row items-center mt-1.5 gap-1.5">
-                      <StarRating rating={Math.round(ratingsData.averageRating)} size={14} />
-                      <Text className="text-xs text-muted-foreground">
-                        {ratingsData.averageRating.toFixed(1)} ({ratingsData.totalRatings} avis)
+                    {ratingsData && ratingsData.totalRatings > 0 ? (
+                      <View className="flex-row flex-wrap gap-2 items-center mt-2">
+                        <View className="flex-row items-center px-2.5 py-1 rounded-full bg-white/20">
+                          <StarRating
+                            rating={Math.round(ratingsData.averageRating)}
+                            size={14}
+                            color="#fbbf24"
+                          />
+                          {/*   <Text className="ml-1.5 text-sm font-bold text-white">
+                            {ratingsData.averageRating.toFixed(1)}
+                          </Text> */}
+                        </View>
+                        <Text className="text-xs text-white/85">
+                          {ratingsData.totalRatings} avis
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text className="mt-1 text-xs text-white/80">
+                        Pas encore d&apos;avis
                       </Text>
-                    </View>
-                  )}
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      router.push("/(stack)/edit-profile" as any);
-                    }}
-                    className="self-start px-4 py-2 mt-3 rounded-xl shadow-sm bg-primary"
-                  >
-                    <Text className="text-sm font-semibold text-white">
-                      Modifier le profil
-                    </Text>
-                  </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </>
-            )}
-          </View>
+              </View>
+
+              <View className="px-5 py-4 bg-white">
+                <View className="flex-row gap-2 items-start mb-4">
+                  <View className="justify-center items-center mt-0.5 rounded-lg size-8 bg-primary/10">
+                    <Ionicons name="mail-outline" size={16} color="#6366f1" />
+                  </View>
+                  <View className="flex-1 min-w-0">
+                    <Text className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">
+                      E-mail
+                    </Text>
+                    <Text
+                      className="mt-0.5 text-sm text-foreground"
+                      numberOfLines={2}
+                    >
+                      {user?.email ?? "—"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </>
+          )}
         </Animated.View>
 
         {/* Compte */}

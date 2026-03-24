@@ -17,6 +17,7 @@ import { getMyRoutes } from "@/src/services/route.service";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { router } from "expo-router";
 import React from "react";
 import { ScrollView, TouchableOpacity, View } from "react-native";
 
@@ -503,33 +504,96 @@ export const TripSheetContent = ({
       )}
 
       {trip.status === "Termine" && acceptedPassengers.length > 0 && (
-        <View className="p-4 mt-4 bg-amber-50 rounded-2xl border border-amber-200">
-          <Text className="mb-3 text-xs font-semibold tracking-wide text-amber-700 uppercase">
-            Noter les passagers
-          </Text>
+        <View className="mt-4">
+          {/* Notation rapide inline */}
+          <View className="hidden p-4 mb-3 bg-amber-50 rounded-2xl border border-amber-200">
+            <Text className="mb-3 text-xs font-semibold tracking-wide text-amber-700 uppercase">
+              Note rapide des passagers
+            </Text>
+            {acceptedPassengers
+              .filter((p) => p.userId)
+              .map((p) => (
+                <View
+                  key={p.id}
+                  className="flex-row justify-between items-center mb-3"
+                >
+                  <Text className="text-sm font-medium text-foreground">
+                    {p.name}
+                  </Text>
+                  <StarRating
+                    rating={0}
+                    size={22}
+                    editable={!ratedPassengers.has(p.id)}
+                    onChange={(stars) => {
+                      setRatedPassengers((prev) => new Set(prev).add(p.id));
+                      ratingMutation.mutate({
+                        routeId: trip.id,
+                        toUserId: p.userId!,
+                        stars,
+                      });
+                    }}
+                  />
+                </View>
+              ))}
+          </View>
+
+          {/* Boutons par passager: noter / signaler */}
           {acceptedPassengers
             .filter((p) => p.userId)
             .map((p) => (
-              <View
-                key={p.id}
-                className="flex-row justify-between items-center mb-3"
-              >
-                <Text className="text-sm font-medium text-foreground">
-                  {p.name}
-                </Text>
-                <StarRating
-                  rating={0}
-                  size={22}
-                  editable={!ratedPassengers.has(p.id)}
-                  onChange={(stars) => {
-                    setRatedPassengers((prev) => new Set(prev).add(p.id));
-                    ratingMutation.mutate({
-                      routeId: trip.id,
-                      toUserId: p.userId!,
-                      stars,
-                    });
+              <View key={`actions-${p.id}`} className="flex-row gap-2 mb-2">
+                <TouchableOpacity
+                  onPress={() => {
+                    close();
+                    router.push({
+                      pathname: "/(stack)/report-passenger",
+                      params: {
+                        routeId: trip.id,
+                        passengerId: p.userId!,
+                        passengerName: p.name,
+                        from: trip.from,
+                        to: trip.to,
+                        mode: "rate",
+                      },
+                    } as any);
                   }}
-                />
+                  className="flex-1 flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-500/15"
+                >
+                  <MaterialCommunityIcons
+                    name="star-outline"
+                    size={16}
+                    color="#d97706"
+                  />
+                  <Text className="text-xs font-semibold text-amber-700">
+                    Noter {p.name.split(" ")[0]}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    close();
+                    router.push({
+                      pathname: "/(stack)/report-passenger",
+                      params: {
+                        routeId: trip.id,
+                        passengerId: p.userId!,
+                        passengerName: p.name,
+                        from: trip.from,
+                        to: trip.to,
+                        mode: "report",
+                      },
+                    } as any);
+                  }}
+                  className="flex-1 flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-500/10"
+                >
+                  <MaterialCommunityIcons
+                    name="flag-outline"
+                    size={16}
+                    color="#dc2626"
+                  />
+                  <Text className="text-xs font-semibold text-red-600">
+                    Trajet non effectué
+                  </Text>
+                </TouchableOpacity>
               </View>
             ))}
         </View>

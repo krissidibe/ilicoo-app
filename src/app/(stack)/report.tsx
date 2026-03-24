@@ -1,9 +1,10 @@
 import HeaderApp from "@/src/components/Header/HeaderApp";
+import StarRating from "@/src/components/StarRating";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Text } from "@/src/components/ui/text";
 import { queryKeys } from "@/src/services/queryKeys";
-import { markTripAsRated } from "@/src/services/rating.service";
+import { createRating, markTripAsRated } from "@/src/services/rating.service";
 import { createReport } from "@/src/services/report.service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +37,10 @@ const ReportScreen = () => {
 
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [description, setDescription] = useState("");
+  const [driverRating, setDriverRating] = useState(0);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+
+  const ratingMutation = useMutation({ mutationFn: createRating });
 
   const reportMutation = useMutation({
     mutationFn: createReport,
@@ -60,8 +65,28 @@ const ReportScreen = () => {
     },
   });
 
+  const isOtherReason = selectedReason === "other";
+  const descriptionRequired = isOtherReason;
+  const descriptionValid =
+    !descriptionRequired || description.trim().length > 0;
+
   const handleSubmit = () => {
     if (!selectedReason || !params.routeId || !params.driverId) return;
+    if (isOtherReason && !description.trim()) {
+      Alert.alert(
+        "Description requise",
+        "Pour « Autre », la description du problème est obligatoire.",
+      );
+      return;
+    }
+    if (driverRating > 0 && !ratingSubmitted && params.driverId) {
+      setRatingSubmitted(true);
+      ratingMutation.mutate({
+        routeId: params.routeId,
+        toUserId: params.driverId,
+        stars: driverRating,
+      });
+    }
     reportMutation.mutate({
       routeId: params.routeId,
       driverId: params.driverId,
@@ -114,9 +139,29 @@ const ReportScreen = () => {
           </View>
         </View>
 
-        <Text className="mb-3 text-sm font-semibold text-foreground">
-          Todo {"=>"} Note: etoiles
-        </Text>
+        {/* Note optionnelle du chauffeur */}
+        <View className="p-4 mb-5 bg-amber-50 rounded-2xl border border-amber-200">
+          <Text className="mb-1 text-xs font-semibold tracking-wide text-amber-700 uppercase">
+            Note du chauffeur
+          </Text>
+          <Text className="mb-3 text-xs text-muted-foreground">
+            Vous pouvez noter le chauffeur avant de signaler.
+          </Text>
+          <View className="flex-row gap-3 items-center">
+            <StarRating
+              rating={driverRating}
+              size={28}
+              editable={!ratingSubmitted}
+              onChange={(stars) => setDriverRating(stars)}
+            />
+            {driverRating > 0 && (
+              <Text className="text-sm font-semibold text-amber-700">
+                {driverRating}/5
+              </Text>
+            )}
+          </View>
+        </View>
+
         <Text className="mb-3 text-sm font-semibold text-foreground">
           Quel est le problème ?
         </Text>
@@ -158,15 +203,35 @@ const ReportScreen = () => {
         </View>
 
         <Text className="mb-2 text-sm font-semibold text-foreground">
-          Description (optionnel)
+          Description{" "}
+          {descriptionRequired ? (
+            <Text className="text-destructive">(obligatoire)</Text>
+          ) : (
+            <Text className="font-normal text-muted-foreground">
+              (optionnel)
+            </Text>
+          )}
         </Text>
+        {descriptionRequired ? (
+          <Text className="mb-2 text-xs text-muted-foreground">
+            Décrivez précisément la situation pour « Autre ».
+          </Text>
+        ) : null}
         <Input
           value={description}
           onChangeText={setDescription}
-          placeholder="Décrivez le problème en détail..."
+          placeholder={
+            descriptionRequired
+              ? "Expliquez le problème en détail…"
+              : "Décrivez le problème en détail…"
+          }
           multiline
           numberOfLines={4}
-          className="min-h-[100px] text-start"
+          className={`min-h-[100px] text-start ${
+            descriptionRequired && !description.trim()
+              ? "border-amber-400"
+              : ""
+          }`}
           style={{ textAlignVertical: "top" }}
         />
       </ScrollView>
@@ -175,7 +240,11 @@ const ReportScreen = () => {
         <Button
           className="rounded-xl"
           onPress={handleSubmit}
-          disabled={!selectedReason || reportMutation.isPending}
+          disabled={
+            !selectedReason ||
+            reportMutation.isPending ||
+            (descriptionRequired && !descriptionValid)
+          }
         >
           <Text className="font-semibold text-primary-foreground">
             {reportMutation.isPending

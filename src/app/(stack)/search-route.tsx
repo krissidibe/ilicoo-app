@@ -1,4 +1,3 @@
-import { RoutePolyline } from "@/src/components/Map/RoutePolyline";
 import { Button } from "@/src/components/ui/button";
 import {
   Card,
@@ -12,6 +11,10 @@ import { mapRouteToOtherDriverRoute } from "@/src/lib/mappers";
 import { cn, formatPrice } from "@/src/lib/utils";
 import { getAllRoutes } from "@/src/services/route.service";
 import { requestRoute } from "@/src/services/routePassenger.service";
+import {
+  calculateRouteWithGoogle,
+  fetchRouteGeometry,
+} from "@/src/utils/routeGeometry";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -26,9 +29,11 @@ import { router } from "expo-router";
 import React, { useCallback, useMemo } from "react";
 import {
   Alert,
+  Dimensions,
   Modal,
   Platform,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -36,6 +41,7 @@ import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplet
 import MapView, {
   Marker,
   Polyline,
+  PROVIDER_GOOGLE,
   type LatLng,
   type MapPressEvent,
 } from "react-native-maps";
@@ -155,6 +161,9 @@ const SearchRouteScreen = () => {
     null,
   );
   const [isReserving, setIsReserving] = React.useState(false);
+  const [driverRouteCoords, setDriverRouteCoords] = React.useState<LatLng[]>(
+    [],
+  );
 
   const { data: allRoutesData = [] } = useQuery({
     ...getAllRoutes(),
@@ -197,22 +206,15 @@ const SearchRouteScreen = () => {
 
   const calculateRoute = async (from: RoutePoint, to: RoutePoint) => {
     try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&geometries=geojson`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const route = data?.routes?.[0];
-      if (!route) {
-        setRouteCoordinates([]);
-        setDistanceKm("0");
-        setDurationMin(0);
-        return;
-      }
-      const coords: LatLng[] = route.geometry.coordinates.map(
-        (p: number[]) => ({ latitude: p[1], longitude: p[0] }),
+      const result = await calculateRouteWithGoogle(
+        from.latitude,
+        from.longitude,
+        to.latitude,
+        to.longitude,
       );
-      setRouteCoordinates(coords);
-      setDistanceKm((route.distance / 1000).toFixed(2));
-      setDurationMin(Math.round(route.duration / 60));
+      setRouteCoordinates(result.coords);
+      setDistanceKm(result.distanceKm);
+      setDurationMin(result.durationMin);
     } catch {
       setRouteCoordinates([]);
       setDistanceKm("0");
@@ -348,29 +350,59 @@ const SearchRouteScreen = () => {
     if (selectedDriver) {
       lats.push(selectedDriver.pickupLat, selectedDriver.dropLat);
       lngs.push(selectedDriver.pickupLng, selectedDriver.dropLng);
+    } else {
+      /* Inclure tous les conducteurs disponibles quand aucun n'est sélectionné */
+      for (const d of otherDriversRoutes) {
+        lats.push(d.pickupLat, d.dropLat);
+        lngs.push(d.pickupLng, d.dropLng);
+      }
     }
     if (lats.length === 0) return defaultRegion;
     return {
       latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
       longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
       latitudeDelta: Math.max(
-        0.05,
-        (Math.max(...lats) - Math.min(...lats)) * 1.5,
+        0.06,
+        (Math.max(...lats) - Math.min(...lats)) * 1.6,
       ),
       longitudeDelta: Math.max(
-        0.05,
-        (Math.max(...lngs) - Math.min(...lngs)) * 1.5,
+        0.06,
+        (Math.max(...lngs) - Math.min(...lngs)) * 1.6,
       ),
     };
-  }, [departure, arrival, selectedDriver]);
+  }, [departure, arrival, selectedDriver, otherDriversRoutes]);
 
   React.useEffect(() => {
-    if (showMapResults && mapRef.current)
-      mapRef.current.animateToRegion(mapRegion, 400);
+    if (showMapResults && mapRef.current) {
+      mapRef.current.animateToRegion(mapRegion, 450);
+    }
   }, [selectedDriverId, showMapResults, mapRegion]);
 
+  const onMapReady = React.useCallback(() => {
+    if (mapRef.current) {
+      mapRef.current.animateToRegion(mapRegion, 1);
+    }
+  }, [mapRegion]);
+
+  const screenH = Dimensions.get("window").height;
+
+  React.useEffect(() => {
+    if (!selectedDriver) {
+      setDriverRouteCoords([]);
+      return;
+    }
+    fetchRouteGeometry(
+      selectedDriver.pickupLat,
+      selectedDriver.pickupLng,
+      selectedDriver.dropLat,
+      selectedDriver.dropLng,
+    )
+      .then(setDriverRouteCoords)
+      .catch(() => setDriverRouteCoords([]));
+  }, [selectedDriver]);
+
   const routesSheetSnapPoints = useMemo(
-    () => (selectedDriverId ? ["28%", "90%"] : ["90%"]),
+    () => (selectedDriverId ? ["30%", "88%"] : ["50%", "88%"]),
     [selectedDriverId],
   );
   const routesSheetRef = React.useRef<BottomSheet>(null);
@@ -423,7 +455,6 @@ const SearchRouteScreen = () => {
   );
 
   if (showMapResults) {
-    const routesToShowOnMap = selectedDriver ? [selectedDriver] : [];
     return (
       <View className="flex-1 bg-background">
         <View className="px-5 pb-4 bg-primary pt-safe">
@@ -457,19 +488,31 @@ const SearchRouteScreen = () => {
           </View>
         </View>
 
-        <View className="flex-1">
+        <View
+          style={{
+            flex: 1,
+            minHeight: Math.max(280, screenH * 0.38),
+            position: "relative",
+          }}
+        >
           <MapView
             ref={mapRef}
-            provider="google"
-            style={{ flex: 1 }}
+            provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+            style={StyleSheet.absoluteFillObject}
             initialRegion={mapRegion}
+            onMapReady={onMapReady}
             showsUserLocation
+            mapType="standard"
           >
-            {departure && arrival && routeCoordinates.length > 1 && (
+            {/* Itinéraire passager (pointillés sur iOS uniquement — Android Google Maps peut ne pas les afficher) */}
+            {/*             {departure && arrival && routeCoordinates.length > 1 && (
               <Polyline
                 coordinates={routeCoordinates}
                 strokeColor="#0ea5e9"
-                strokeWidth={5}
+                strokeWidth={4}
+                lineDashPattern={
+                  Platform.OS === "ios" ? [8, 4] : undefined
+                }
               />
             )}
             {departure && (
@@ -491,32 +534,55 @@ const SearchRouteScreen = () => {
                 title="Mon arrivée"
                 pinColor="#e11d48"
               />
-            )}
-            {routesToShowOnMap.map((r) => (
-              <React.Fragment key={r.id}>
-                <Marker
-                  coordinate={{ latitude: r.pickupLat, longitude: r.pickupLng }}
-                  title={`Départ ${r.driverName}`}
-                  description={r.from}
-                  pinColor={r.color}
-                />
-                <Marker
-                  coordinate={{ latitude: r.dropLat, longitude: r.dropLng }}
-                  title={`Arrivée ${r.driverName}`}
-                  description={r.to}
-                  pinColor={r.color}
-                />
-                <RoutePolyline
-                  key={`line-${r.id}`}
-                  pickupLat={r.pickupLat}
-                  pickupLng={r.pickupLng}
-                  dropLat={r.dropLat}
-                  dropLng={r.dropLng}
-                  strokeColor={r.color}
-                  strokeWidth={4}
-                />
-              </React.Fragment>
-            ))}
+            )} */}
+
+            {/* Tous les conducteurs disponibles sur la carte */}
+            {otherDriversRoutes.map((r) => {
+              const isSelected = r.id === selectedDriverId;
+              return (
+                <React.Fragment key={r.id}>
+                  <Marker
+                    coordinate={{
+                      latitude: r.pickupLat,
+                      longitude: r.pickupLng,
+                    }}
+                    title={`Départ — ${r.driverName}`}
+                    description={r.from}
+                    pinColor={isSelected ? r.color : "#94a3b8"}
+                    onPress={() => setSelectedDriverId(r.id)}
+                  />
+                  <Marker
+                    coordinate={{ latitude: r.dropLat, longitude: r.dropLng }}
+                    title={`Arrivée — ${r.driverName}`}
+                    description={r.to}
+                    pinColor={isSelected ? r.color : "#94a3b8"}
+                    onPress={() => setSelectedDriverId(r.id)}
+                  />
+                  {/* Tracé Google réel pour le conducteur sélectionné */}
+                  {isSelected && driverRouteCoords.length >= 2 && (
+                    <Polyline
+                      coordinates={driverRouteCoords}
+                      strokeColor={r.color}
+                      strokeWidth={5}
+                    />
+                  )}
+                  {/* Ligne indicative pour les autres */}
+                  {!isSelected && (
+                    <Polyline
+                      coordinates={[
+                        { latitude: r.pickupLat, longitude: r.pickupLng },
+                        { latitude: r.dropLat, longitude: r.dropLng },
+                      ]}
+                      strokeColor="#94a3b8"
+                      strokeWidth={2}
+                      lineDashPattern={
+                        Platform.OS === "ios" ? [4, 4] : undefined
+                      }
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
           </MapView>
 
           <BottomSheet
@@ -621,7 +687,17 @@ const SearchRouteScreen = () => {
                           {driver.to}
                         </Text>
                       </View>
-                      <View className="flex-row justify-between items-center">
+                      <View className="flex-row gap-2 justify-between items-center mt-2 mb-2">
+                        <View className="flex-row gap-1 items-center">
+                          <Ionicons
+                            name="time-outline"
+                            size={16}
+                            color="black"
+                          />
+                          <Text className="text-sm text-muted-foreground">
+                            Départ : {driver.departureAt}
+                          </Text>
+                        </View>
                         <View className="flex-row gap-1 items-center">
                           <Ionicons
                             name="cash-outline"
@@ -632,6 +708,8 @@ const SearchRouteScreen = () => {
                             {formatPrice(driver.distanceKm, seats)}
                           </Text>
                         </View>
+                      </View>
+                      <View className="flex-row justify-between items-center">
                         <View className="flex-row gap-3 items-center">
                           <View className="flex-row gap-1 items-center">
                             <Ionicons
@@ -782,7 +860,8 @@ const SearchRouteScreen = () => {
                 url: "https://maps.googleapis.com/maps/api",
               }}
             />
-            {quartierSearch.trim().length > 0 && filteredQuartiers.length > 0 ? (
+            {quartierSearch.trim().length > 0 &&
+            filteredQuartiers.length > 0 ? (
               <ScrollView
                 keyboardShouldPersistTaps="handled"
                 className="mt-2 max-h-36"

@@ -10,7 +10,34 @@ export type CreateReportParams = {
 export const createReport = async (params: CreateReportParams) => {
   const res = await apiFetch("reports", {
     method: "POST",
-    body: JSON.stringify(params),
+    body: JSON.stringify({ ...params, reportType: "PASSENGER_REPORTS_DRIVER" }),
+  });
+  const json = res as { success: boolean; data?: unknown; error?: string };
+  if (!json.success || json.data === undefined) {
+    throw new Error(json.error ?? "Erreur API");
+  }
+  return json.data;
+};
+
+export type CreatePassengerReportParams = {
+  routeId: string;
+  passengerId: string;
+  reason: string;
+  description?: string;
+};
+
+export const createPassengerReport = async (
+  params: CreatePassengerReportParams,
+) => {
+  const res = await apiFetch("reports", {
+    method: "POST",
+    body: JSON.stringify({
+      routeId: params.routeId,
+      driverId: params.passengerId,
+      reason: params.reason,
+      description: params.description,
+      reportType: "DRIVER_REPORTS_PASSENGER",
+    }),
   });
   const json = res as { success: boolean; data?: unknown; error?: string };
   if (!json.success || json.data === undefined) {

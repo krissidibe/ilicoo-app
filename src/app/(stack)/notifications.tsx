@@ -342,27 +342,54 @@ const NotificationsScreen = () => {
         ) : null}
 
         <View className="flex-row gap-3 mt-6">
-          <Button
-            className="flex-1 rounded-xl"
-            onPress={() => {
-              close();
-              const driverTypes = [
-                "RIDE_REQUEST",
-                "PAYMENT_RECEIVED",
-                "COMMISSION_DUE",
-              ];
-              if (driverTypes.includes(notif.type)) {
-                router.push("/(stack)/driver-trips" as any);
-              } else {
-                router.push("/(stack)/recent-trips" as any);
-              }
-            }}
-          >
-            <View className="flex-row gap-2 items-center">
-              <Ionicons name="car-outline" size={16} color="white" />
-              <Text className="font-semibold text-white">Voir mes trajets</Text>
-            </View>
-          </Button>
+          {route?.id ? (
+            <Button
+              className="flex-1 rounded-xl"
+              onPress={() => {
+                close();
+                const driverTypes = [
+                  "RIDE_REQUEST",
+                  "PAYMENT_RECEIVED",
+                  "COMMISSION_DUE",
+                ];
+                const isDriverNotif = driverTypes.includes(notif.type);
+                router.push({
+                  pathname: "/(stack)/trip-detail",
+                  params: {
+                    routeId: route.id,
+                    type: isDriverNotif ? "driver" : "passenger",
+                  },
+                } as any);
+              }}
+            >
+              <View className="flex-row gap-2 items-center">
+                <Ionicons name="car-outline" size={16} color="white" />
+                <Text className="font-semibold text-white">Voir le trajet</Text>
+              </View>
+            </Button>
+          ) : (
+            <Button
+              className="flex-1 rounded-xl"
+              onPress={() => {
+                close();
+                const driverTypes = [
+                  "RIDE_REQUEST",
+                  "PAYMENT_RECEIVED",
+                  "COMMISSION_DUE",
+                ];
+                if (driverTypes.includes(notif.type)) {
+                  router.push("/(stack)/driver-trips" as any);
+                } else {
+                  router.push("/(stack)/recent-trips" as any);
+                }
+              }}
+            >
+              <View className="flex-row gap-2 items-center">
+                <Ionicons name="car-outline" size={16} color="white" />
+                <Text className="font-semibold text-white">Voir mes trajets</Text>
+              </View>
+            </Button>
+          )}
           <Button variant="outline" className="px-4 rounded-xl" onPress={close}>
             <Text>Fermer</Text>
           </Button>
