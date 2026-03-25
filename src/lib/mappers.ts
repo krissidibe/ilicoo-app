@@ -211,10 +211,11 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
   };
 };
 
-export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { name: string; image?: string | null; ratingsReceived?: { stars: number }[] }; passengers?: { seats: number }[] }, index: number): OtherDriverRoute => {
+export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { id: string; name: string; image?: string | null; ratingsReceived?: { stars: number }[] }; passengers?: { seats: number }[] }, index: number): OtherDriverRoute => {
   const reservedSeats = (r.passengers ?? []).reduce((sum, p) => sum + p.seats, 0);
   return {
   id: r.id,
+  driverId: r.user?.id ?? "",
   driverName: r.user?.name ?? "Chauffeur",
   driverRating: computeAverageRating(r.user?.ratingsReceived),
   from: r.pickupAddress,

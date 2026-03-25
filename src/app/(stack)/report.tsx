@@ -1,10 +1,9 @@
 import HeaderApp from "@/src/components/Header/HeaderApp";
-import StarRating from "@/src/components/StarRating";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Text } from "@/src/components/ui/text";
 import { queryKeys } from "@/src/services/queryKeys";
-import { createRating, markTripAsRated } from "@/src/services/rating.service";
+import { markTripAsRated } from "@/src/services/rating.service";
 import { createReport } from "@/src/services/report.service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +11,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
 
-const REASONS = [
+const DEFAULT_REASONS = [
   {
     id: "behavior",
     label: "Comportement inapproprié",
@@ -25,6 +24,20 @@ const REASONS = [
   { id: "other", label: "Autre", icon: "dots-horizontal-circle-outline" },
 ];
 
+const NON_EFFECTUE_REASONS = [
+  {
+    id: "prevented",
+    label: "J'ai eu un empêchement",
+    icon: "account-cancel-outline",
+  },
+  {
+    id: "driver-no-show",
+    label: "Le chauffeur ne s'est pas présenté",
+    icon: "car-off",
+  },
+  { id: "other", label: "Autre", icon: "dots-horizontal-circle-outline" },
+];
+
 const ReportScreen = () => {
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<{
@@ -33,14 +46,13 @@ const ReportScreen = () => {
     driverName: string;
     from: string;
     to: string;
+    mode?: "default" | "non-effectue";
   }>();
+  const isNonEffectueMode = params.mode === "non-effectue";
 
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [description, setDescription] = useState("");
-  const [driverRating, setDriverRating] = useState(0);
-  const [ratingSubmitted, setRatingSubmitted] = useState(false);
-
-  const ratingMutation = useMutation({ mutationFn: createRating });
+  const reasons = isNonEffectueMode ? NON_EFFECTUE_REASONS : DEFAULT_REASONS;
 
   const reportMutation = useMutation({
     mutationFn: createReport,
@@ -78,14 +90,6 @@ const ReportScreen = () => {
         "Pour « Autre », la description du problème est obligatoire.",
       );
       return;
-    }
-    if (driverRating > 0 && !ratingSubmitted && params.driverId) {
-      setRatingSubmitted(true);
-      ratingMutation.mutate({
-        routeId: params.routeId,
-        toUserId: params.driverId,
-        stars: driverRating,
-      });
     }
     reportMutation.mutate({
       routeId: params.routeId,
@@ -139,34 +143,11 @@ const ReportScreen = () => {
           </View>
         </View>
 
-        {/* Note optionnelle du chauffeur */}
-        <View className="p-4 mb-5 bg-amber-50 rounded-2xl border border-amber-200">
-          <Text className="mb-1 text-xs font-semibold tracking-wide text-amber-700 uppercase">
-            Note du chauffeur
-          </Text>
-          <Text className="mb-3 text-xs text-muted-foreground">
-            Vous pouvez noter le chauffeur avant de signaler.
-          </Text>
-          <View className="flex-row gap-3 items-center">
-            <StarRating
-              rating={driverRating}
-              size={28}
-              editable={!ratingSubmitted}
-              onChange={(stars) => setDriverRating(stars)}
-            />
-            {driverRating > 0 && (
-              <Text className="text-sm font-semibold text-amber-700">
-                {driverRating}/5
-              </Text>
-            )}
-          </View>
-        </View>
-
         <Text className="mb-3 text-sm font-semibold text-foreground">
           Quel est le problème ?
         </Text>
         <View className="gap-2 mb-5">
-          {REASONS.map((reason) => (
+          {reasons.map((reason) => (
             <TouchableOpacity
               key={reason.id}
               onPress={() => setSelectedReason(reason.id)}

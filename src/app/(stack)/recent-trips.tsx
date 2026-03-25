@@ -344,9 +344,21 @@ const RecentTripsScreen = () => {
                   <Text className="text-xs text-muted-foreground">
                     Chauffeur
                   </Text>
-                  <Text className="text-sm font-semibold text-foreground">
-                    {trip.driver.name} - {trip.driver.rating}★
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(stack)/user-reviews",
+                        params: {
+                          userId: trip.driver?.id ?? "",
+                          name: trip.driver?.name ?? "Chauffeur",
+                        },
+                      } as any)
+                    }
+                  >
+                    <Text className="text-sm font-semibold text-foreground">
+                      {trip.driver.name} - {trip.driver.rating}★
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
               <TouchableOpacity

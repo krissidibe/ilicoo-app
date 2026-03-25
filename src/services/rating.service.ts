@@ -17,6 +17,10 @@ type RatingResponse = {
   ratings: RatingApi[];
   averageRating: number;
   totalRatings: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasMore: boolean;
 };
 
 const extractData = async <T>(res: Promise<{ success: boolean; data?: T }>) => {
@@ -39,6 +43,19 @@ export const getUserRatings = (userId: string) => {
       ),
     enabled: !!userId,
   });
+};
+
+export const getUserRatingsPage = async (
+  userId: string,
+  page = 1,
+  limit = 10,
+) => {
+  return extractData<RatingResponse>(
+    apiFetch(`ratings?userId=${userId}&page=${page}&limit=${limit}`) as Promise<{
+      success: boolean;
+      data?: RatingResponse;
+    }>,
+  );
 };
 
 export type CreateRatingParams = {

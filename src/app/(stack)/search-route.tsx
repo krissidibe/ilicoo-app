@@ -655,11 +655,24 @@ const SearchRouteScreen = () => {
                         >
                           {driver.driverName}
                         </Text>
-                        <View className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/15">
+                        <TouchableOpacity
+                          className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/15"
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            if (!driver.driverId) return;
+                            router.push({
+                              pathname: "/(stack)/user-reviews",
+                              params: {
+                                userId: driver.driverId,
+                                name: driver.driverName,
+                              },
+                            } as any);
+                          }}
+                        >
                           <Text className="text-xs font-semibold text-amber-700">
                             {driver.driverRating}★
                           </Text>
-                        </View>
+                        </TouchableOpacity>
                       </View>
                       <View className="flex-row gap-2 items-center mb-2">
                         <Ionicons

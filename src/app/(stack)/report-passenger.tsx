@@ -13,14 +13,8 @@ import React, { useState } from "react";
 import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
 
 const REASONS = [
-  {
-    id: "behavior",
-    label: "Comportement inapproprié",
-    icon: "alert-circle-outline",
-  },
-  { id: "no-show", label: "Non présentation", icon: "account-off-outline" },
-  { id: "damage", label: "Dégradation du véhicule", icon: "car-wrench" },
-  { id: "payment", label: "Problème de paiement", icon: "cash-remove" },
+  { id: "no-show", label: "Il ne s'est pas présenté", icon: "account-off-outline" },
+  { id: "unreachable", label: "Injoignable", icon: "phone-off-outline" },
   { id: "other", label: "Autre", icon: "dots-horizontal-circle-outline" },
 ];
 

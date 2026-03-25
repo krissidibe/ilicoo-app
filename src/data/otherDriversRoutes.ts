@@ -5,6 +5,7 @@
 
 export type OtherDriverRoute = {
   id: string;
+  driverId: string;
   driverName: string;
   driverRating: number;
   from: string;
@@ -30,6 +31,7 @@ export type OtherDriverRoute = {
 export const otherDriversRoutes: OtherDriverRoute[] = [
   {
     id: "d1",
+    driverId: "u-d1",
     driverName: "Moussa Traore",
     driverRating: 4.8,
     from: "Hamdallaye",
@@ -54,6 +56,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
   },
   {
     id: "d2",
+    driverId: "u-d2",
     driverName: "Fatoumata Keita",
     driverRating: 4.9,
     from: "ACI 2000",
@@ -78,6 +81,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
   },
   {
     id: "d3",
+    driverId: "u-d3",
     driverName: "Abdoul Karim",
     driverRating: 4.4,
     from: "Badalabougou",
@@ -102,6 +106,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
   },
   {
     id: "d4",
+    driverId: "u-d4",
     driverName: "Ibrahima Coulibaly",
     driverRating: 4.6,
     from: "Sogoniko",
@@ -126,6 +131,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
   },
   {
     id: "d5",
+    driverId: "u-d5",
     driverName: "Aminata Diallo",
     driverRating: 4.7,
     from: "Lafiabougou",
@@ -150,6 +156,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
   },
   {
     id: "d6",
+    driverId: "u-d6",
     driverName: "Ousmane Koné",
     driverRating: 4.5,
     from: "Niamakoro",
@@ -174,6 +181,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
   },
   {
     id: "d7",
+    driverId: "u-d7",
     driverName: "Mariam Sanogo",
     driverRating: 4.9,
     from: "Hamdallaye",

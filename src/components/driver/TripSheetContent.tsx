@@ -591,7 +591,7 @@ export const TripSheetContent = ({
                     color="#dc2626"
                   />
                   <Text className="text-xs font-semibold text-red-600">
-                    Trajet non effectué
+                    Signaler {p.name.split(" ")[0]}
                   </Text>
                 </TouchableOpacity>
               </View>

@@ -24,6 +24,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  TextInput,
   Linking,
   Modal,
   ScrollView,
@@ -132,6 +133,7 @@ const HomeScreen = () => {
     null,
   );
   const [ratingPopupStars, setRatingPopupStars] = useState(0);
+  const [ratingPopupComment, setRatingPopupComment] = useState("");
   const [ratingPopupSubmitted, setRatingPopupSubmitted] = useState(false);
   const [ratingPopupConfirmed, setRatingPopupConfirmed] = useState(false);
   /** Évite les courses async / fermeture bloquante par la modal commission (RN empile la 2e Modal au-dessus). */
@@ -200,6 +202,7 @@ const HomeScreen = () => {
       if (unrated && !ratingPopupTripRef.current) {
         setRatingPopupTrip(unrated);
         setRatingPopupStars(0);
+        setRatingPopupComment("");
         setRatingPopupSubmitted(false);
         setRatingPopupConfirmed(false);
       }
@@ -409,9 +412,21 @@ const HomeScreen = () => {
                   <Text className="text-xs text-muted-foreground">
                     Chauffeur
                   </Text>
-                  <Text className="text-sm font-semibold text-foreground">
-                    {trip.driver.name} - {trip.driver.rating}★
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(stack)/user-reviews",
+                        params: {
+                          userId: trip.driver?.id ?? "",
+                          name: trip.driver?.name ?? "Chauffeur",
+                        },
+                      } as any)
+                    }
+                  >
+                    <Text className="text-sm font-semibold text-foreground">
+                      {trip.driver.name} - {trip.driver.rating}★
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
               <TouchableOpacity
@@ -696,6 +711,7 @@ const HomeScreen = () => {
                             driverName: trip.driver.name,
                             from: trip.from,
                             to: trip.to,
+                            mode: "non-effectue",
                           },
                         } as any);
                       }
@@ -703,7 +719,7 @@ const HomeScreen = () => {
                     className="px-4 py-2.5 rounded-xl border border-red-300 bg-red-50"
                   >
                     <Text className="text-sm font-semibold text-red-600">
-                      Signaler
+                      Non effectué
                     </Text>
                   </TouchableOpacity>
                   {false && (
@@ -744,15 +760,34 @@ const HomeScreen = () => {
                   rating={ratingPopupStars}
                   size={36}
                   editable={!ratingPopupSubmitted}
-                  onChange={(stars) => {
-                    setRatingPopupStars(stars);
-                    if (!ratingPopupSubmitted && ratingPopupTrip?.driver?.id) {
+                  onChange={(stars) => setRatingPopupStars(stars)}
+                />
+                <TextInput
+                  value={ratingPopupComment}
+                  onChangeText={setRatingPopupComment}
+                  placeholder="Ajouter une note (optionnel)"
+                  multiline
+                  numberOfLines={3}
+                  className="mt-4 w-full min-h-[84px] rounded-xl border border-gray-200 px-3 py-2 text-sm text-foreground"
+                  style={{ textAlignVertical: "top" }}
+                />
+                {!ratingPopupSubmitted ? (
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (!ratingPopupTrip?.driver?.id || ratingPopupStars < 1) {
+                        Alert.alert(
+                          "Note requise",
+                          "Veuillez sélectionner au moins une étoile.",
+                        );
+                        return;
+                      }
                       setRatingPopupSubmitted(true);
                       ratingMutation.mutate(
                         {
                           routeId: String(ratingPopupTrip.id),
                           toUserId: ratingPopupTrip.driver.id,
-                          stars,
+                          stars: ratingPopupStars,
+                          comment: ratingPopupComment.trim() || undefined,
                         },
                         {
                           onSuccess: () => {
@@ -763,9 +798,14 @@ const HomeScreen = () => {
                           },
                         },
                       );
-                    }
-                  }}
-                />
+                    }}
+                    className="mt-4 px-4 py-2.5 rounded-xl bg-emerald-600"
+                  >
+                    <Text className="text-sm font-semibold text-white">
+                      Envoyer la note
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
                 {ratingPopupSubmitted && (
                   <Text className="mt-3 text-sm font-medium text-emerald-600">
                     Merci pour votre note !

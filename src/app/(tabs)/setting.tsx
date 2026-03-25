@@ -123,15 +123,28 @@ const Setting = () => {
                     {ratingsData && ratingsData.totalRatings > 0 ? (
                       <View className="flex-row flex-wrap gap-2 items-center mt-2">
                         <View className="flex-row items-center px-2.5 py-1 rounded-full bg-white/20">
-                          <StarRating
-                            rating={Math.round(ratingsData.averageRating)}
-                            size={14}
-                            color="#fbbf24"
-                          />
+                          <TouchableOpacity
+                            onPress={() =>
+                              router.push({
+                                pathname: "/(stack)/user-reviews",
+                                params: {
+                                  userId: user?.id ?? "",
+                                  name: user?.name ?? "Utilisateur",
+                                },
+                              } as any)
+                            }
+                          >
+                            <StarRating
+                              rating={Math.round(ratingsData.averageRating)}
+                              size={14}
+                              color="#fbbf24"
+                            />
+                          </TouchableOpacity>
                           {/*   <Text className="ml-1.5 text-sm font-bold text-white">
                             {ratingsData.averageRating.toFixed(1)}
                           </Text> */}
                         </View>
+
                         <Text className="text-xs text-white/85">
                           {ratingsData.totalRatings} avis
                         </Text>
@@ -190,6 +203,23 @@ const Setting = () => {
               />
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(100).duration(350)}>
+              <SettingItem
+                icon="star-outline"
+                title="Avis"
+                subtitle="Voir tous les avis reçus"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: "/(stack)/user-reviews",
+                    params: {
+                      userId: user?.id ?? "",
+                      name: user?.name ?? "Utilisateur",
+                    },
+                  } as any);
+                }}
+              />
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(110).duration(350)}>
               <SettingItem
                 icon="car-sport-outline"
                 title="Mes véhicules"
