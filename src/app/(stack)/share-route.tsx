@@ -6,10 +6,11 @@ import {
   CardTitle,
 } from "@/src/components/ui/card";
 import { Text } from "@/src/components/ui/text";
-import { cn, roundUpToNearest10 } from "@/src/lib/utils";
+import { cn, formatPriceDisplay, tripPriceForVehicle } from "@/src/lib/utils";
 import { createRoute } from "@/src/services/route.service";
 import { getVehicules } from "@/src/services/vehicle.service";
 import type { VehicleApi } from "@/src/types/api";
+import { calculateRouteWithGoogle } from "@/src/utils/routeGeometry";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   type DateTimePickerEvent,
@@ -117,30 +118,6 @@ const formatDate = (d: Date) =>
 const formatTime = (d: Date) =>
   d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-/**
- * Calcul dynamique du prix par km (identique au backend)
- * Formule: base = max(100 - 10 * i, 10) où i = floor(distance / 10)
- */
-const getPricePerKm = (distanceKm: number, passengers: number): number => {
-  if (distanceKm <= 0) return 0;
-
-  const i = Math.floor(distanceKm / 10);
-  const base = Math.max(100 - 10 * i, 10);
-
-  if (passengers <= 1) return base;
-  if (passengers === 2) return base * (1.15 + 0.1 * i);
-  if (passengers === 3) return base * (1.25 + 0.15 * i);
-  return base * (1.3 + 0.2 * i);
-};
-
-const estimatePrice = (distanceKm: number, passengers: number): number => {
-  const pricePerKm = getPricePerKm(distanceKm, passengers);
-  const rawTripPrice = pricePerKm * distanceKm;
-  const tripPrice = roundUpToNearest10(rawTripPrice);
-  const rawPricePerPassenger = tripPrice / Math.max(passengers, 1);
-  return roundUpToNearest10(rawPricePerPassenger);
-};
-
 const ShareRouteScreen = () => {
   const mapRef = React.useRef<MapView>(null);
   const [step, setStep] = React.useState<FormStep>(1);
@@ -234,22 +211,29 @@ const ShareRouteScreen = () => {
 
   const calculateRoute = async (from: RoutePoint, to: RoutePoint) => {
     try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&geometries=geojson`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const route = data?.routes?.[0];
-      if (!route) {
-        setRouteCoordinates([]);
-        setDistanceKm("0");
-        setDurationMin(0);
-        return;
-      }
-      const coords: LatLng[] = route.geometry.coordinates.map(
-        (p: number[]) => ({ latitude: p[1], longitude: p[0] }),
+      const departureHint =
+        tripDateValue && tripTimeValue
+          ? (() => {
+              const c = new Date(tripDateValue);
+              c.setHours(
+                tripTimeValue.getHours(),
+                tripTimeValue.getMinutes(),
+                0,
+                0,
+              );
+              return c;
+            })()
+          : undefined;
+      const result = await calculateRouteWithGoogle(
+        from.latitude,
+        from.longitude,
+        to.latitude,
+        to.longitude,
+        departureHint,
       );
-      setRouteCoordinates(coords);
-      setDistanceKm((route.distance / 1000).toFixed(2));
-      setDurationMin(Math.round(route.duration / 60));
+      setRouteCoordinates(result.coords);
+      setDistanceKm(result.distanceKm);
+      setDurationMin(result.durationMin);
     } catch {
       setRouteCoordinates([]);
       setDistanceKm("0");
@@ -370,7 +354,8 @@ const ShareRouteScreen = () => {
         dropLng: arrival.longitude,
         pickupAddress: departure.address,
         dropAddress: arrival.address,
-        price: estimatePrice(Number(distanceKm), 1),
+        price: tripPriceForVehicle(Number(distanceKm), 1, selectedVehicle.type),
+        vehicleId: selectedVehicle.id,
         distanceKm: Number(distanceKm),
         durationMin,
         availableSeats: seatsNum,
@@ -834,6 +819,12 @@ const ShareRouteScreen = () => {
                     </Text>
                   </View>
                 </View>
+                {durationMin > 0 && (
+                  <Text className="px-2 mt-1 text-xs text-muted-foreground">
+                    Le temps ne prend pas en compte l’état réel de la
+                    circulation
+                  </Text>
+                )}
                 <View className="flex-row gap-2 mt-2">
                   <Button
                     variant="outline"
@@ -967,27 +958,24 @@ const ShareRouteScreen = () => {
                     </Text>
                   </View>
                   <Text className="mt-1 text-lg font-bold text-emerald-700">
-                    {estimatePrice(Number(distanceKm), 1).toLocaleString(
-                      "fr-FR",
-                    )}{" "}
-                    FCFA
+                    {formatPriceDisplay(
+                      tripPriceForVehicle(
+                        Number(distanceKm),
+                        1,
+                        selectedVehicle?.type ?? "CAR",
+                      ),
+                    )}
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      Alert.alert(
-                        "Prix estimé",
-                        "C’est le prix d’une réservation pour une personne. Ce prix peut être différent si la réservation contient plusieurs personnes",
-                      );
-                    }}
-                    className="absolute top-2 right-4"
-                  >
-                    <Ionicons
-                      name="information-circle"
-                      size={30}
-                      color="#059669"
-                    />
-                  </TouchableOpacity>
                 </View>
+
+                {/* Si c'est voiture */}
+                {durationMin > 0 && selectedVehicle?.type === "CAR" && (
+                  <Text className="px-2 mt-1 text-xs text-muted-foreground">
+                    C’est le prix d’une réservation pour une personne. Ce prix
+                    peut être différent si la réservation contient plusieurs
+                    personnes
+                  </Text>
+                )}
                 <View className="flex-row gap-2 mt-2">
                   <Button
                     variant="outline"

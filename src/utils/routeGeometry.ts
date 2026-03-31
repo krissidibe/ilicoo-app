@@ -2,6 +2,7 @@
  * Récupère la géométrie réelle de la route via Google Directions API.
  * Retourne les coordonnées du tracé routier, pas une ligne droite.
  */
+
 import Constants from "expo-constants";
 
 export type LatLng = { latitude: number; longitude: number };
@@ -14,10 +15,15 @@ export const fetchRouteGeometry = async (
   pickupLng: number,
   dropLat: number,
   dropLng: number,
+  departureAt?: Date,
 ): Promise<LatLng[]> => {
   const apiKey = getGoogleApiKey();
   try {
-    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${pickupLat},${pickupLng}&destination=${dropLat},${dropLng}&key=${apiKey}&mode=driving`;
+    const trafficParams =
+      departureAt && !Number.isNaN(departureAt.getTime())
+        ? `&departure_time=${Math.floor(departureAt.getTime() / 1000)}&traffic_model=best_guess`
+        : "";
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${pickupLat},${pickupLng}&destination=${dropLat},${dropLng}&key=${apiKey}&mode=driving${trafficParams}`;
     const res = await fetch(url);
     const data = await res.json();
     const leg = data?.routes?.[0]?.legs?.[0];
@@ -81,12 +87,13 @@ export const decodePolyline = (encoded: string): LatLng[] => {
   return coords;
 };
 
-/** Calcule la distance et durée via Google Directions API. */
+/** Calcule la distance et durée via Google Directions API (durée trafic si `departureAt` fourni). */
 export const calculateRouteWithGoogle = async (
   fromLat: number,
   fromLng: number,
   toLat: number,
   toLng: number,
+  departureAt?: Date,
 ): Promise<{
   coords: LatLng[];
   distanceKm: string;
@@ -94,7 +101,11 @@ export const calculateRouteWithGoogle = async (
 }> => {
   const apiKey = getGoogleApiKey();
   try {
-    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${fromLat},${fromLng}&destination=${toLat},${toLng}&key=${apiKey}&mode=driving`;
+    const trafficParams =
+      departureAt && !Number.isNaN(departureAt.getTime())
+        ? `&departure_time=${Math.floor(departureAt.getTime() / 1000)}&traffic_model=best_guess`
+        : "";
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${fromLat},${fromLng}&destination=${toLat},${toLng}&key=${apiKey}&mode=driving${trafficParams}`;
     const res = await fetch(url);
     const data = await res.json();
     const route = data?.routes?.[0];
@@ -111,7 +122,14 @@ export const calculateRouteWithGoogle = async (
       coords.push(...decodePolyline(step.polyline.points));
     }
     const distanceM = leg.distance?.value ?? 0;
-    const durationS = leg.duration?.value ?? 0;
+    const durationTraffic = leg.duration_in_traffic?.value as
+      | number
+      | undefined;
+    const durationBase = leg.duration?.value ?? 0;
+    const durationS =
+      durationTraffic != null && durationTraffic > 0
+        ? durationTraffic
+        : durationBase;
     return {
       coords:
         coords.length >= 2

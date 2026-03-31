@@ -34,6 +34,7 @@ const ReportPassengerScreen = () => {
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [passengerRating, setPassengerRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
   const ratingMutation = useMutation({
@@ -77,6 +78,7 @@ const ReportPassengerScreen = () => {
       routeId: params.routeId,
       toUserId: params.passengerId,
       stars: passengerRating,
+      comment: ratingComment.trim() || undefined,
     });
   };
 
@@ -168,6 +170,21 @@ const ReportPassengerScreen = () => {
                 </Text>
               )}
             </View>
+            <Text className="mb-2 text-sm font-semibold text-foreground">
+              Commentaire{" "}
+              <Text className="font-normal text-muted-foreground">
+                (optionnel)
+              </Text>
+            </Text>
+            <Input
+              value={ratingComment}
+              onChangeText={setRatingComment}
+              placeholder="Ajouter un commentaire…"
+              multiline
+              numberOfLines={3}
+              className="min-h-[80px] text-start"
+              style={{ textAlignVertical: "top" }}
+            />
           </View>
         ) : (
           /* Mode: signaler le passager */

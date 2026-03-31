@@ -147,7 +147,9 @@ const DriverTripsScreen = () => {
             filteredTrips.map((trip, index) => {
               const statusStyle = statusConfig(trip.status);
               const pendingCount = trip.passengers.filter((p) => p.status === "PENDING").length;
-              const acceptedCount = trip.passengers.filter((p) => p.status === "ACCEPTED").length;
+              const acceptedCount = trip.passengers.filter(
+                (p) => p.status === "ACCEPTED" || p.status === "COMPLETED",
+              ).length;
 
               return (
                 <Animated.View key={trip.id} entering={FadeInDown.delay(100 + index * 80).duration(350)}>

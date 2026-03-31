@@ -1,3 +1,4 @@
+import { CommissionPendingModal } from "@/src/components/CommissionPendingModal";
 import { RouteMapView } from "@/src/components/Map/RouteMapView";
 import StarRating from "@/src/components/StarRating";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
@@ -616,59 +617,20 @@ const HomeScreen = () => {
     <>
       {/* Commission en premier dans l'arbre ; la modal notation est rendue après pour rester au-dessus si besoin */}
       {/* Popup optionnel: payer la commission — masquée tant que la notation trajet est affichée */}
-      <Modal
+      <CommissionPendingModal
         visible={
           commissionPopupVisible &&
           firstPendingPayment != null &&
           ratingPopupTrip === null
         }
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCommissionPopupVisible(false)}
-      >
-        <View className="flex-1 justify-center items-center bg-black/50">
-          <View className="p-6 w-[90%] max-w-md bg-white rounded-3xl items-center">
-            <MaterialCommunityIcons
-              name="cash-check"
-              size={52}
-              color="#6366f1"
-              style={{ marginBottom: 12 }}
-            />
-            <Text className="mb-1 text-lg font-bold text-foreground">
-              Commission à payer
-            </Text>
-            <Text className="mb-1 text-sm text-center text-muted-foreground">
-              Trajet terminé: {firstPendingPayment?.route.pickupAddress} →{" "}
-              {firstPendingPayment?.route.dropAddress}
-            </Text>
-            <Text className="mb-5 text-sm text-center text-muted-foreground">
-              Vous avez une commission de{" "}
-              {firstPendingPayment?.ilicoCommission.toLocaleString("fr-FR")}{" "}
-              FCFA en attente de paiement.
-            </Text>
-
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                onPress={() => setCommissionPopupVisible(false)}
-                className="px-5 py-2.5 rounded-xl border border-gray-300"
-              >
-                <Text className="text-sm font-semibold text-muted-foreground">
-                  Plus tard
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  setCommissionPopupVisible(false);
-                  router.push("/(stack)/payment" as any);
-                }}
-                className="px-5 py-2.5 rounded-xl bg-primary"
-              >
-                <Text className="text-sm font-semibold text-white">Payer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setCommissionPopupVisible(false)}
+        onPay={() => {
+          setCommissionPopupVisible(false);
+          router.push("/(stack)/payment" as any);
+        }}
+        pendingPayments={paymentsData?.pendingPayments ?? []}
+        pendingCommissionTotal={paymentsData?.pendingCommission}
+      />
 
       {/* Popup bloquant: confirmation + notation après trajet terminé (au-dessus de la commission) */}
       <Modal

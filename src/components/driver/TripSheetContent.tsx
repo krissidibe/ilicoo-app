@@ -1,4 +1,3 @@
-import StarRating from "@/src/components/StarRating";
 import {
   Avatar,
   AvatarFallback,
@@ -12,11 +11,10 @@ import type {
 } from "@/src/data/myPublishedTrips";
 import { mapRouteToMyPublishedTrip } from "@/src/lib/mappers";
 import { cn } from "@/src/lib/utils";
-import { createRating } from "@/src/services/rating.service";
 import { getMyRoutes } from "@/src/services/route.service";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React from "react";
 import { ScrollView, TouchableOpacity, View } from "react-native";
@@ -82,12 +80,6 @@ export const TripSheetContent = ({
 }: TripSheetContentProps) => {
   const { close, expandedPassengerId, setExpandedPassengerId } =
     useBottomSheetStore();
-  const [ratedPassengers, setRatedPassengers] = React.useState<Set<string>>(
-    new Set(),
-  );
-  const ratingMutation = useMutation({
-    mutationFn: createRating,
-  });
   const { data: routesData } = useQuery({
     ...getMyRoutes(),
     refetchInterval: 5000,
@@ -112,21 +104,26 @@ export const TripSheetContent = ({
   const acceptedPassengers = trip.passengers.filter(
     (p) => p.status === "ACCEPTED",
   );
+  const completedPassengers = trip.passengers.filter(
+    (p) => p.status === "COMPLETED",
+  );
+  const passengersOnBoard =
+    trip.status === "Termine" ? completedPassengers : acceptedPassengers;
 
   const PassengerAccordion = ({
     p,
     trip: t,
-    isAccepted,
+    isOnBoard,
   }: {
     p: PassengerRequest;
     trip: MyPublishedTrip;
-    isAccepted: boolean;
+    isOnBoard: boolean;
   }) => (
     <View
       key={p.id}
       className={cn(
         "overflow-hidden rounded-xl",
-        isAccepted ? "border border-emerald-200" : "border border-gray-200",
+        isOnBoard ? "border border-emerald-200" : "border border-gray-200",
       )}
     >
       <TouchableOpacity
@@ -135,17 +132,17 @@ export const TripSheetContent = ({
         }
         className={cn(
           "flex-row justify-between items-center p-3",
-          isAccepted ? "bg-emerald-50" : "bg-gray-50",
+          isOnBoard ? "bg-emerald-50" : "bg-gray-50",
         )}
       >
         <View className="flex-row flex-1 items-center">
           <Avatar
-            className={cn(isAccepted ? "size-8" : "size-10")}
+            className={cn(isOnBoard ? "size-8" : "size-10")}
             alt={p.name}
           >
             <AvatarImage source={{ uri: p.image }} />
             <AvatarFallback>
-              <Text className={cn(isAccepted ? "text-[10px]" : "text-xs")}>
+              <Text className={cn(isOnBoard ? "text-[10px]" : "text-xs")}>
                 {p.name
                   .split(" ")
                   .map((n) => n[0])
@@ -159,7 +156,7 @@ export const TripSheetContent = ({
               {p.seats} place(s) • {p.rating}★{" "}
             </Text>
             <Text className="text-xs text-muted-foreground">
-              {!isAccepted && `${p.requestedAt}`}
+              {!isOnBoard && `${p.requestedAt}`}
             </Text>
           </View>
         </View>
@@ -168,16 +165,16 @@ export const TripSheetContent = ({
             onPress={() => onOpenPassengerMap(t, p)}
             className={cn(
               "rounded-full",
-              isAccepted ? "p-1.5 bg-blue-500/15" : "p-2 bg-blue-500/15",
+              isOnBoard ? "p-1.5 bg-blue-500/15" : "p-2 bg-blue-500/15",
             )}
           >
             <MaterialCommunityIcons
               name="map-marker-outline"
-              size={isAccepted ? 14 : 18}
+              size={isOnBoard ? 14 : 18}
               color="#2563eb"
             />
           </TouchableOpacity>
-          {!isAccepted && (
+          {!isOnBoard && (
             <>
               <TouchableOpacity
                 onPress={() => onReject(t.id, p.id)}
@@ -203,7 +200,7 @@ export const TripSheetContent = ({
               </TouchableOpacity>
             </>
           )}
-          {isAccepted && p.phone && (
+          {isOnBoard && p.phone && (
             <TouchableOpacity
               onPress={() => onCallPassenger(p.phone!)}
               className="p-1.5 rounded-full bg-emerald-500/15"
@@ -213,7 +210,7 @@ export const TripSheetContent = ({
           )}
           <Ionicons
             name={expandedPassengerId === p.id ? "chevron-up" : "chevron-down"}
-            size={isAccepted ? 16 : 18}
+            size={isOnBoard ? 16 : 18}
             color="#64748b"
           />
         </View>
@@ -222,7 +219,7 @@ export const TripSheetContent = ({
         <View
           className={cn(
             "p-3 bg-white border-t",
-            isAccepted ? "border-emerald-200" : "border-gray-200",
+            isOnBoard ? "border-emerald-200" : "border-gray-200",
           )}
         >
           <View className="flex-row items-center mb-2">
@@ -285,6 +282,69 @@ export const TripSheetContent = ({
               Prix: {p.price ?? t.price}
             </Text>
           </View>
+          {t.status === "Termine" &&
+            p.status === "COMPLETED" &&
+            p.userId &&
+            (!p.ratedByDriver || !p.reportedByDriver) && (
+              <View className="gap-2 mt-3 pt-3 border-t border-gray-100">
+                {!p.ratedByDriver && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      close();
+                      router.push({
+                        pathname: "/(stack)/report-passenger",
+                        params: {
+                          routeId: t.id,
+                          passengerId: p.userId!,
+                          passengerName: p.name,
+                          from: t.from,
+                          to: t.to,
+                          mode: "rate",
+                        },
+                      } as never);
+                    }}
+                    className="flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-500/15"
+                  >
+                    <MaterialCommunityIcons
+                      name="star-outline"
+                      size={16}
+                      color="#d97706"
+                    />
+                    <Text className="text-xs font-semibold text-amber-700">
+                      Noter le passager
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {!p.reportedByDriver && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      close();
+                      router.push({
+                        pathname: "/(stack)/report-passenger",
+                        params: {
+                          routeId: t.id,
+                          passengerId: p.userId!,
+                          passengerName: p.name,
+                          from: t.from,
+                          to: t.to,
+                          mode: "report",
+                        },
+                      } as never);
+                    }}
+                    className="flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-500/10"
+                  >
+                    <MaterialCommunityIcons
+                      name="flag-outline"
+                      size={16}
+                      color="#dc2626"
+                    />
+                    <Text className="text-xs font-semibold text-red-600">
+                      Signaler le passager
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
         </View>
       )}
     </View>
@@ -432,7 +492,7 @@ export const TripSheetContent = ({
                 key={p.id}
                 p={p}
                 trip={trip}
-                isAccepted={false}
+                isOnBoard={false}
               />
             ))}
           </View>
@@ -472,11 +532,11 @@ export const TripSheetContent = ({
           </View>
         )}
 
-      {acceptedPassengers.length > 0 && (
+      {passengersOnBoard.length > 0 && (
         <View className="mt-4">
           <View className="flex-row justify-between items-center mb-2">
             <Text className="text-sm font-semibold text-foreground">
-              Demandes acceptées
+              {trip.status === "Termine" ? "Passagers" : "Demandes acceptées"}
             </Text>
             <TouchableOpacity
               onPress={() => {
@@ -496,106 +556,10 @@ export const TripSheetContent = ({
             </TouchableOpacity>
           </View>
           <View className="gap-2">
-            {acceptedPassengers.map((p) => (
-              <PassengerAccordion key={p.id} p={p} trip={trip} isAccepted />
+            {passengersOnBoard.map((p) => (
+              <PassengerAccordion key={p.id} p={p} trip={trip} isOnBoard />
             ))}
           </View>
-        </View>
-      )}
-
-      {trip.status === "Termine" && acceptedPassengers.length > 0 && (
-        <View className="mt-4">
-          {/* Notation rapide inline */}
-          <View className="hidden p-4 mb-3 bg-amber-50 rounded-2xl border border-amber-200">
-            <Text className="mb-3 text-xs font-semibold tracking-wide text-amber-700 uppercase">
-              Note rapide des passagers
-            </Text>
-            {acceptedPassengers
-              .filter((p) => p.userId)
-              .map((p) => (
-                <View
-                  key={p.id}
-                  className="flex-row justify-between items-center mb-3"
-                >
-                  <Text className="text-sm font-medium text-foreground">
-                    {p.name}
-                  </Text>
-                  <StarRating
-                    rating={0}
-                    size={22}
-                    editable={!ratedPassengers.has(p.id)}
-                    onChange={(stars) => {
-                      setRatedPassengers((prev) => new Set(prev).add(p.id));
-                      ratingMutation.mutate({
-                        routeId: trip.id,
-                        toUserId: p.userId!,
-                        stars,
-                      });
-                    }}
-                  />
-                </View>
-              ))}
-          </View>
-
-          {/* Boutons par passager: noter / signaler */}
-          {acceptedPassengers
-            .filter((p) => p.userId)
-            .map((p) => (
-              <View key={`actions-${p.id}`} className="flex-row gap-2 mb-2">
-                <TouchableOpacity
-                  onPress={() => {
-                    close();
-                    router.push({
-                      pathname: "/(stack)/report-passenger",
-                      params: {
-                        routeId: trip.id,
-                        passengerId: p.userId!,
-                        passengerName: p.name,
-                        from: trip.from,
-                        to: trip.to,
-                        mode: "rate",
-                      },
-                    } as any);
-                  }}
-                  className="flex-1 flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-500/15"
-                >
-                  <MaterialCommunityIcons
-                    name="star-outline"
-                    size={16}
-                    color="#d97706"
-                  />
-                  <Text className="text-xs font-semibold text-amber-700">
-                    Noter {p.name.split(" ")[0]}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    close();
-                    router.push({
-                      pathname: "/(stack)/report-passenger",
-                      params: {
-                        routeId: trip.id,
-                        passengerId: p.userId!,
-                        passengerName: p.name,
-                        from: trip.from,
-                        to: trip.to,
-                        mode: "report",
-                      },
-                    } as any);
-                  }}
-                  className="flex-1 flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-500/10"
-                >
-                  <MaterialCommunityIcons
-                    name="flag-outline"
-                    size={16}
-                    color="#dc2626"
-                  />
-                  <Text className="text-xs font-semibold text-red-600">
-                    Signaler {p.name.split(" ")[0]}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ))}
         </View>
       )}
     </ScrollView>

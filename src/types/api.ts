@@ -9,6 +9,8 @@ export type ApiResponse<T> = {
   message?: string;
 };
 
+export type VehicleTypeApi = "CAR" | "MOTORCYCLE";
+
 export type UserApi = {
   id: string;
   name: string;
@@ -23,9 +25,8 @@ export type UserApi = {
   permitPhotoBack?: string | null;
   identityPhoto?: string | null;
   ratingsReceived?: { stars: number }[];
+  vehicles?: { type: VehicleTypeApi; default: boolean }[];
 };
-
-export type VehicleTypeApi = "CAR" | "MOTORCYCLE";
 
 export type VehicleApi = {
   id: string;
@@ -62,6 +63,15 @@ export type RoutePassengerStatusApi =
 export type RouteApi = {
   id: string;
   userId: string;
+  /** Véhicule utilisé pour ce trajet (publication) */
+  vehicleId?: string | null;
+  /** Copie du type au moment de la publication */
+  vehicleType?: VehicleTypeApi | null;
+  vehicle?: {
+    id: string;
+    type: VehicleTypeApi;
+    name: string;
+  } | null;
   pickupLat: number;
   pickupLng: number;
   dropLat: number;
@@ -100,4 +110,7 @@ export type RoutePassengerApi = {
   updatedAt: string;
   route?: RouteApi & { user?: UserApi };
   user?: UserApi;
+  /** Renseigné côté API « mes trajets » (conducteur) */
+  ratedByDriver?: boolean;
+  reportedByDriver?: boolean;
 };

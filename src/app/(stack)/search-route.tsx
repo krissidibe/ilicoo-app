@@ -8,14 +8,15 @@ import {
 import { Text } from "@/src/components/ui/text";
 import type { OtherDriverRoute } from "@/src/data/otherDriversRoutes";
 import { mapRouteToOtherDriverRoute } from "@/src/lib/mappers";
-import { cn, formatPrice } from "@/src/lib/utils";
-import { getAllRoutes } from "@/src/services/route.service";
+import { cn, formatTripPriceForVehicle } from "@/src/lib/utils";
+import { searchRoutes } from "@/src/services/route.service";
 import { requestRoute } from "@/src/services/routePassenger.service";
+import type { RouteApi } from "@/src/types/api";
 import {
   calculateRouteWithGoogle,
   fetchRouteGeometry,
 } from "@/src/utils/routeGeometry";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -50,6 +51,8 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 type PointField = "depart" | "arrivee";
 type FormStep = 1 | 2 | 3;
 
+type VehicleFilterTab = "all" | "car" | "moto";
+
 type RoutePoint = {
   latitude: number;
   longitude: number;
@@ -70,6 +73,9 @@ const defaultRegion = {
   latitudeDelta: 0.12,
   longitudeDelta: 0.12,
 };
+
+/** Référence stable — évite de faire changer `mapRegion` à chaque rendu (boucle animateToRegion). */
+const EMPTY_ROUTES: RouteApi[] = [];
 
 const quartiers: Quartier[] = [
   {
@@ -164,21 +170,82 @@ const SearchRouteScreen = () => {
   const [driverRouteCoords, setDriverRouteCoords] = React.useState<LatLng[]>(
     [],
   );
+  const [vehicleFilterTab, setVehicleFilterTab] =
+    React.useState<VehicleFilterTab>("all");
 
-  const { data: allRoutesData = [] } = useQuery({
-    ...getAllRoutes(),
-    enabled: showMapResults,
+  const searchAtIso = React.useMemo(() => {
+    if (!tripDateValue || !tripTimeValue) return null;
+    const combined = new Date(tripDateValue);
+    combined.setHours(
+      tripTimeValue.getHours(),
+      tripTimeValue.getMinutes(),
+      0,
+      0,
+    );
+    return combined.toISOString();
+  }, [tripDateValue, tripTimeValue]);
+
+  /** Paramètres stables — éviter `new Date().toISOString()` dans la queryKey (cassait React Query). */
+  const routesSearchParams = useMemo(() => {
+    if (!departure || !arrival || !searchAtIso) return null;
+    return {
+      pickupLat: departure.latitude,
+      pickupLng: departure.longitude,
+      dropLat: arrival.latitude,
+      dropLng: arrival.longitude,
+      searchAt: searchAtIso,
+    };
+  }, [departure, arrival, searchAtIso]);
+
+  const {
+    data: routesData,
+    error: routesSearchError,
+    isError,
+    isPending: isRoutesSearchPending,
+  } = useQuery({
+    ...searchRoutes({
+      pickupLat: routesSearchParams?.pickupLat ?? 0,
+      pickupLng: routesSearchParams?.pickupLng ?? 0,
+      dropLat: routesSearchParams?.dropLat ?? 0,
+      dropLng: routesSearchParams?.dropLng ?? 0,
+      searchAt: routesSearchParams?.searchAt ?? "1970-01-01T00:00:00.000Z",
+    }),
+    enabled: showMapResults && routesSearchParams != null,
     refetchInterval: 5000,
+    retry: 2,
   });
 
-  const otherDriversRoutes: OtherDriverRoute[] = (allRoutesData ?? [])
-    .filter((r) => r.availableSeats > 0)
-    .map((r, i) =>
-      mapRouteToOtherDriverRoute(
-        r as Parameters<typeof mapRouteToOtherDriverRoute>[0],
-        i,
-      ),
-    );
+  const routesList = routesData ?? EMPTY_ROUTES;
+
+  const otherDriversRoutes: OtherDriverRoute[] = useMemo(
+    () =>
+      routesList
+        .filter((r) => r.availableSeats > 0)
+        .map((r, i) =>
+          mapRouteToOtherDriverRoute(
+            r as Parameters<typeof mapRouteToOtherDriverRoute>[0],
+            i,
+          ),
+        ),
+    [routesList],
+  );
+
+  const filteredDriversRoutes = useMemo(() => {
+    if (vehicleFilterTab === "all") return otherDriversRoutes;
+    if (vehicleFilterTab === "car") {
+      return otherDriversRoutes.filter((d) => d.vehicleType === "CAR");
+    }
+    return otherDriversRoutes.filter((d) => d.vehicleType === "MOTORCYCLE");
+  }, [otherDriversRoutes, vehicleFilterTab]);
+
+  React.useEffect(() => {
+    if (
+      selectedDriverId &&
+      !filteredDriversRoutes.some((d) => d.id === selectedDriverId)
+    ) {
+      setSelectedDriverId(null);
+    }
+  }, [filteredDriversRoutes, selectedDriverId]);
 
   const filteredQuartiers = React.useMemo(() => {
     const q = quartierSearch.trim().toLowerCase();
@@ -206,12 +273,27 @@ const SearchRouteScreen = () => {
 
   const calculateRoute = async (from: RoutePoint, to: RoutePoint) => {
     try {
+      const departureHint =
+        tripDateValue && tripTimeValue
+          ? (() => {
+              const c = new Date(tripDateValue);
+              c.setHours(
+                tripTimeValue.getHours(),
+                tripTimeValue.getMinutes(),
+                0,
+                0,
+              );
+              return c;
+            })()
+          : undefined;
       const result = await calculateRouteWithGoogle(
         from.latitude,
         from.longitude,
         to.latitude,
         to.longitude,
+        departureHint,
       );
+      console.log(result);
       setRouteCoordinates(result.coords);
       setDistanceKm(result.distanceKm);
       setDurationMin(result.durationMin);
@@ -320,6 +402,7 @@ const SearchRouteScreen = () => {
     setDurationMin(0);
     setShowMapResults(false);
     setSelectedDriverId(null);
+    setVehicleFilterTab("all");
   };
 
   const onPickerChange = (event: DateTimePickerEvent, selected?: Date) => {
@@ -333,7 +416,7 @@ const SearchRouteScreen = () => {
     activeMapField === "arrivee" && pendingPoint ? pendingPoint : arrival;
 
   const selectedDriver = selectedDriverId
-    ? (otherDriversRoutes.find((d) => d.id === selectedDriverId) ?? null)
+    ? (filteredDriversRoutes.find((d) => d.id === selectedDriverId) ?? null)
     : null;
 
   const mapRegion = React.useMemo(() => {
@@ -351,8 +434,8 @@ const SearchRouteScreen = () => {
       lats.push(selectedDriver.pickupLat, selectedDriver.dropLat);
       lngs.push(selectedDriver.pickupLng, selectedDriver.dropLng);
     } else {
-      /* Inclure tous les conducteurs disponibles quand aucun n'est sélectionné */
-      for (const d of otherDriversRoutes) {
+      /* Inclure les conducteurs filtrés quand aucun n'est sélectionné */
+      for (const d of filteredDriversRoutes) {
         lats.push(d.pickupLat, d.dropLat);
         lngs.push(d.pickupLng, d.dropLng);
       }
@@ -370,19 +453,28 @@ const SearchRouteScreen = () => {
         (Math.max(...lngs) - Math.min(...lngs)) * 1.6,
       ),
     };
-  }, [departure, arrival, selectedDriver, otherDriversRoutes]);
+  }, [departure, arrival, selectedDriver, filteredDriversRoutes]);
 
+  /** Toujours la dernière région calculée (pour éviter de dépendre de mapRegion dans les effets). */
+  const mapRegionRef = React.useRef(mapRegion);
+  mapRegionRef.current = mapRegion;
+
+  /**
+   * Ne recentrer la carte que quand on ouvre l’écran ou qu’on change de conducteur.
+   * Si mapRegion est dans les deps, chaque refetch / recalcul réappelle animateToRegion
+   * et empêche de déplacer la carte à la main.
+   */
   React.useEffect(() => {
-    if (showMapResults && mapRef.current) {
-      mapRef.current.animateToRegion(mapRegion, 450);
-    }
-  }, [selectedDriverId, showMapResults, mapRegion]);
+    if (!showMapResults || !mapRef.current) return;
+    const id = requestAnimationFrame(() => {
+      mapRef.current?.animateToRegion(mapRegionRef.current, 450);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [selectedDriverId, showMapResults]);
 
   const onMapReady = React.useCallback(() => {
-    if (mapRef.current) {
-      mapRef.current.animateToRegion(mapRegion, 1);
-    }
-  }, [mapRegion]);
+    mapRef.current?.animateToRegion(mapRegionRef.current, 1);
+  }, []);
 
   const screenH = Dimensions.get("window").height;
 
@@ -391,32 +483,35 @@ const SearchRouteScreen = () => {
       setDriverRouteCoords([]);
       return;
     }
+    const raw = routesList.find((r) => r.id === selectedDriver.id);
+    const depAt = raw?.departureAt ? new Date(raw.departureAt) : undefined;
     fetchRouteGeometry(
       selectedDriver.pickupLat,
       selectedDriver.pickupLng,
       selectedDriver.dropLat,
       selectedDriver.dropLng,
+      depAt,
     )
       .then(setDriverRouteCoords)
       .catch(() => setDriverRouteCoords([]));
-  }, [selectedDriver]);
+  }, [selectedDriver, routesList]);
 
   const routesSheetSnapPoints = useMemo(
-    () => (selectedDriverId ? ["30%", "88%"] : ["50%", "88%"]),
+    () => (selectedDriverId ? ["32%", "88%"] : ["42%", "88%"]),
     [selectedDriverId],
   );
   const routesSheetRef = React.useRef<BottomSheet>(null);
 
   React.useEffect(() => {
     if (routesSheetRef.current && selectedDriverId) {
-      routesSheetRef.current.snapToIndex(0);
+      routesSheetRef.current.snapToIndex(1);
     }
   }, [selectedDriverId]);
 
   const handleReserve = async () => {
     if (!selectedDriverId || isReserving) return;
-    const driver = otherDriversRoutes.find((d) => d.id === selectedDriverId);
-    const selectedRoute = (allRoutesData ?? []).find(
+    const driver = filteredDriversRoutes.find((d) => d.id === selectedDriverId);
+    const selectedRoute = routesList.find(
       (route) => route.id === selectedDriverId,
     );
     if (!driver) return;
@@ -489,6 +584,7 @@ const SearchRouteScreen = () => {
         </View>
 
         <View
+          pointerEvents="box-none"
           style={{
             flex: 1,
             minHeight: Math.max(280, screenH * 0.38),
@@ -503,6 +599,11 @@ const SearchRouteScreen = () => {
             onMapReady={onMapReady}
             showsUserLocation
             mapType="standard"
+            scrollEnabled
+            zoomEnabled
+            rotateEnabled
+            pitchEnabled
+            toolbarEnabled={Platform.OS === "android"}
           >
             {/* Itinéraire passager (pointillés sur iOS uniquement — Android Google Maps peut ne pas les afficher) */}
             {/*             {departure && arrival && routeCoordinates.length > 1 && (
@@ -536,8 +637,8 @@ const SearchRouteScreen = () => {
               />
             )} */}
 
-            {/* Tous les conducteurs disponibles sur la carte */}
-            {otherDriversRoutes.map((r) => {
+            {/* Conducteurs filtrés sur la carte */}
+            {filteredDriversRoutes.map((r) => {
               const isSelected = r.id === selectedDriverId;
               return (
                 <React.Fragment key={r.id}>
@@ -546,11 +647,34 @@ const SearchRouteScreen = () => {
                       latitude: r.pickupLat,
                       longitude: r.pickupLng,
                     }}
+                    anchor={{ x: 0.5, y: 0.5 }}
+                    tracksViewChanges={false}
                     title={`Départ — ${r.driverName}`}
                     description={r.from}
-                    pinColor={isSelected ? r.color : "#94a3b8"}
                     onPress={() => setSelectedDriverId(r.id)}
-                  />
+                  >
+                    <View
+                      className="items-center justify-center rounded-full border-2 border-white p-1.5"
+                      style={{
+                        backgroundColor: `${r.color}35`,
+                        opacity: isSelected ? 1 : 0.85,
+                        shadowColor: "#000",
+                        shadowOpacity: 0.25,
+                        shadowRadius: 3,
+                        elevation: 3,
+                      }}
+                    >
+                      {r.vehicleType === "MOTORCYCLE" ? (
+                        <MaterialCommunityIcons
+                          name="motorbike"
+                          size={22}
+                          color={r.color}
+                        />
+                      ) : (
+                        <Ionicons name="car-sport" size={22} color={r.color} />
+                      )}
+                    </View>
+                  </Marker>
                   <Marker
                     coordinate={{ latitude: r.dropLat, longitude: r.dropLng }}
                     title={`Arrivée — ${r.driverName}`}
@@ -588,8 +712,9 @@ const SearchRouteScreen = () => {
           <BottomSheet
             ref={routesSheetRef}
             snapPoints={routesSheetSnapPoints}
-            index={0}
+            index={1}
             enablePanDownToClose={false}
+            enableDynamicSizing={false}
             backdropComponent={renderBackdrop}
             handleIndicatorStyle={{ backgroundColor: "#cbd5e1" }}
             backgroundStyle={{
@@ -605,6 +730,70 @@ const SearchRouteScreen = () => {
                 paddingTop: 8,
               }}
             >
+              <View className="flex-row p-1 mb-3 rounded-2xl bg-slate-100">
+                {(
+                  [
+                    {
+                      id: "all" as VehicleFilterTab,
+                      label: "Tous",
+                      icon: "grid-outline" as const,
+                      mci: false,
+                    },
+                    {
+                      id: "car" as VehicleFilterTab,
+                      label: "Voitures",
+                      icon: "car-outline" as const,
+                      mci: false,
+                    },
+                    {
+                      id: "moto" as VehicleFilterTab,
+                      label: "Moto",
+                      icon: "motorbike" as const,
+                      mci: true,
+                    },
+                  ] as const
+                ).map((tab) => (
+                  <TouchableOpacity
+                    key={tab.id}
+                    activeOpacity={0.85}
+                    className={cn(
+                      "flex-1 flex-row gap-1.5 py-2.5 rounded-xl items-center justify-center",
+                      vehicleFilterTab === tab.id
+                        ? "bg-white shadow-sm shadow-black/10"
+                        : "",
+                    )}
+                    onPress={() => setVehicleFilterTab(tab.id)}
+                  >
+                    {tab.mci ? (
+                      <MaterialCommunityIcons
+                        name={tab.icon}
+                        size={16}
+                        color={
+                          vehicleFilterTab === tab.id ? "#6366f1" : "#94a3b8"
+                        }
+                      />
+                    ) : (
+                      <Ionicons
+                        name={tab.icon}
+                        size={16}
+                        color={
+                          vehicleFilterTab === tab.id ? "#6366f1" : "#94a3b8"
+                        }
+                      />
+                    )}
+                    <Text
+                      className={cn(
+                        "text-xs font-semibold",
+                        vehicleFilterTab === tab.id
+                          ? "text-primary"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
               <TouchableOpacity
                 onPress={() => routesSheetRef.current?.snapToIndex(1)}
                 className="mb-4"
@@ -613,16 +802,40 @@ const SearchRouteScreen = () => {
                   Choisir un trajet
                 </Text>
                 <Text className="text-xs text-muted-foreground mt-0.5">
-                  Appuyez pour agrandir la liste
+                  Glissez le panneau pour réduire ou agrandir
                 </Text>
               </TouchableOpacity>
-              {otherDriversRoutes.length === 0 ? (
+              {isError ? (
+                <View className="px-1 py-6">
+                  <Text className="text-sm text-center text-red-600">
+                    {routesSearchError instanceof Error
+                      ? routesSearchError.message
+                      : "Impossible de charger les trajets."}
+                  </Text>
+                  <Text className="mt-3 text-xs text-center text-muted-foreground">
+                    Vérifiez la connexion et l’URL de l’API. Sur appareil
+                    physique, remplacez localhost par l’IP de votre machine.
+                  </Text>
+                </View>
+              ) : isRoutesSearchPending ? (
+                <Text className="py-8 text-center text-muted-foreground">
+                  Chargement des trajets…
+                </Text>
+              ) : otherDriversRoutes.length === 0 ? (
                 <Text className="py-8 text-center text-muted-foreground">
                   Aucun trajet disponible pour le moment
                 </Text>
+              ) : filteredDriversRoutes.length === 0 ? (
+                <Text className="py-8 text-center text-muted-foreground">
+                  {vehicleFilterTab === "moto"
+                    ? "Aucun trajet en moto pour ces critères"
+                    : vehicleFilterTab === "car"
+                      ? "Aucun trajet en voiture pour ces critères"
+                      : "Aucun trajet pour ce filtre"}
+                </Text>
               ) : (
                 <View className="flex-col gap-3">
-                  {otherDriversRoutes.map((driver) => (
+                  {filteredDriversRoutes.map((driver) => (
                     <TouchableOpacity
                       key={driver.id}
                       onPress={() => setSelectedDriverId(driver.id)}
@@ -638,15 +851,24 @@ const SearchRouteScreen = () => {
                           className="p-2 rounded-full"
                           style={{ backgroundColor: `${driver.color}20` }}
                         >
-                          <Ionicons
-                            name="car-sport"
-                            size={18}
-                            color={driver.color}
-                          />
+                          {driver.vehicleType === "MOTORCYCLE" ? (
+                            <MaterialCommunityIcons
+                              name="motorbike"
+                              size={18}
+                              color={driver.color}
+                            />
+                          ) : (
+                            <Ionicons
+                              name="car-sport"
+                              size={18}
+                              color={driver.color}
+                            />
+                          )}
                         </View>
+
                         <Text
                           className={cn(
-                            "ml-3 font-semibold text-base",
+                            "ml-2 flex-1 font-semibold text-base",
                             selectedDriverId === driver.id
                               ? "text-primary"
                               : "text-foreground",
@@ -706,9 +928,10 @@ const SearchRouteScreen = () => {
                             name="time-outline"
                             size={16}
                             color="black"
+                            className="opacity-50"
                           />
                           <Text className="text-sm text-muted-foreground">
-                            Départ : {driver.departureAt}
+                            {driver.departureAt}
                           </Text>
                         </View>
                         <View className="flex-row gap-1 items-center">
@@ -718,7 +941,11 @@ const SearchRouteScreen = () => {
                             color="#059669"
                           />
                           <Text className="text-sm font-bold text-emerald-600">
-                            {formatPrice(driver.distanceKm, seats)}
+                            {formatTripPriceForVehicle(
+                              driver.distanceKm,
+                              seats,
+                              driver.vehicleType,
+                            )}
                           </Text>
                         </View>
                       </View>
@@ -1064,7 +1291,7 @@ const SearchRouteScreen = () => {
                     </View>
                     <View className="flex-1">
                       <Text className="text-xs text-muted-foreground">
-                        Départ
+                        Date et heure de départ
                       </Text>
                       <Text
                         className="mt-0.5 text-sm font-semibold"
@@ -1124,6 +1351,12 @@ const SearchRouteScreen = () => {
                     </Text>
                   </View>
                 </View>
+                {durationMin > 0 && (
+                  <Text className="px-2 mt-1 text-xs text-muted-foreground">
+                    Le temps ne prend pas en compte l’état réel de la
+                    circulation
+                  </Text>
+                )}
                 <Button
                   className="mt-2 rounded-xl"
                   disabled={!canGoStep2}

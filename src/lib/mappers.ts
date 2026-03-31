@@ -5,6 +5,7 @@ import type { RoutePassengerApi, RouteApi, VehicleApi } from "@/src/types/api";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import type { MyPublishedTrip, MyPublishedTripStatus, PassengerRequest, PassengerRequestStatus } from "@/src/data/myPublishedTrips";
 import type { OtherDriverRoute } from "@/src/data/otherDriversRoutes";
+import { formatDepartureLabel } from "@/src/lib/departureDisplay";
 import { formatPrice, formatPriceDisplay, calculateTripPrice } from "@/src/lib/utils";
 
 const ROUTE_PASSENGER_STATUS_TO_UI: Record<string, TripStatus> = {
@@ -28,7 +29,7 @@ const PASSENGER_STATUS_UI: Record<string, PassengerRequestStatus> = {
   ACCEPTED: "ACCEPTED",
   REJECTED: "REJECTED",
   CANCELLED: "REJECTED",
-  COMPLETED: "ACCEPTED",
+  COMPLETED: "COMPLETED",
 };
 
 const COLORS = ["#e11d48", "#059669", "#7c3aed", "#0d9488", "#ea580c", "#4f46e5", "#be185d"];
@@ -143,7 +144,8 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
 
 export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
   const status = RIDE_STATUS_TO_UI[r.status] ?? "En attente";
-  const vehicleName = r.user?.vehicles?.[0]?.name ?? "Véhicule";
+  const vehicleName =
+    r.vehicle?.name ?? r.user?.vehicles?.[0]?.name ?? "Véhicule";
   const totalSeats = r.availableSeats + (r.passengers?.reduce((s, p) => s + p.seats, 0) ?? 0);
   const totalPassengers = (r.passengers ?? []).reduce((s, p) => s + p.seats, 0) || 1;
   const passengers: PassengerRequest[] = (r.passengers ?? []).map((p) => {
@@ -184,6 +186,8 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
         { latitude: pPickupLat, longitude: pPickupLng },
         { latitude: pDropLat, longitude: pDropLng },
       ],
+      ratedByDriver: p.ratedByDriver,
+      reportedByDriver: p.reportedByDriver,
     };
   });
   return {
@@ -211,8 +215,18 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
   };
 };
 
-export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { id: string; name: string; image?: string | null; ratingsReceived?: { stars: number }[] }; passengers?: { seats: number }[] }, index: number): OtherDriverRoute => {
+export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { id: string; name: string; image?: string | null; ratingsReceived?: { stars: number }[]; vehicles?: { type: string; default: boolean }[] }; passengers?: { seats: number }[] }, index: number): OtherDriverRoute => {
   const reservedSeats = (r.passengers ?? []).reduce((sum, p) => sum + p.seats, 0);
+  const defaultVehicle =
+    r.user?.vehicles?.find((v) => v.default) ?? r.user?.vehicles?.[0];
+  const vehicleType: OtherDriverRoute["vehicleType"] =
+    r.vehicleType === "MOTORCYCLE" || r.vehicle?.type === "MOTORCYCLE"
+      ? "MOTORCYCLE"
+      : r.vehicleType === "CAR" || r.vehicle?.type === "CAR"
+        ? "CAR"
+        : defaultVehicle?.type === "MOTORCYCLE"
+          ? "MOTORCYCLE"
+          : "CAR";
   return {
   id: r.id,
   driverId: r.user?.id ?? "",
@@ -225,18 +239,19 @@ export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { id: string; 
   dropLat: r.dropLat,
   dropLng: r.dropLng,
   distanceKm: r.distanceKm,
-  price: formatPrice(r.distanceKm, 1),
+  price: formatPriceDisplay(r.price),
   pricePerSeat: r.price,
   availableSeats: r.availableSeats,
   reservedSeats,
   departureAt: r.departureAt
-    ? new Date(r.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    ? formatDepartureLabel(r.departureAt)
     : "—",
   routeCoordinates: [
     { latitude: r.pickupLat, longitude: r.pickupLng },
     { latitude: r.dropLat, longitude: r.dropLng },
   ],
   color: COLORS[index % COLORS.length],
+  vehicleType,
 };};
 
 export const mapVehicleToUi = (v: VehicleApi) => ({

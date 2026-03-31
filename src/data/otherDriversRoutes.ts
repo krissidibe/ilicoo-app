@@ -26,6 +26,8 @@ export type OtherDriverRoute = {
   departureAt: string;
   routeCoordinates: { latitude: number; longitude: number }[];
   color: string; // for map polyline/marker
+  /** Type du véhicule par défaut du conducteur */
+  vehicleType: "CAR" | "MOTORCYCLE";
 };
 
 export const otherDriversRoutes: OtherDriverRoute[] = [
@@ -47,6 +49,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
     reservedSeats: 1,
     departureAt: "14:30",
     color: "#e11d48",
+    vehicleType: "CAR",
     routeCoordinates: [
       { latitude: 12.6337, longitude: -8.0059 },
       { latitude: 12.62, longitude: -8.02 },
@@ -72,6 +75,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
     reservedSeats: 0,
     departureAt: "15:00",
     color: "#059669",
+    vehicleType: "MOTORCYCLE",
     routeCoordinates: [
       { latitude: 12.6201, longitude: -8.0264 },
       { latitude: 12.61, longitude: -8.01 },
@@ -97,6 +101,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
     reservedSeats: 2,
     departureAt: "14:45",
     color: "#7c3aed",
+    vehicleType: "CAR",
     routeCoordinates: [
       { latitude: 12.6333, longitude: -7.9833 },
       { latitude: 12.6, longitude: -7.97 },
@@ -122,6 +127,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
     reservedSeats: 1,
     departureAt: "16:00",
     color: "#0d9488",
+    vehicleType: "CAR",
     routeCoordinates: [
       { latitude: 12.5987, longitude: -8.0099 },
       { latitude: 12.58, longitude: -8.0 },
@@ -147,6 +153,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
     reservedSeats: 0,
     departureAt: "17:30",
     color: "#ea580c",
+    vehicleType: "CAR",
     routeCoordinates: [
       { latitude: 12.6743, longitude: -8.0098 },
       { latitude: 12.65, longitude: -8.0 },
@@ -172,6 +179,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
     reservedSeats: 0,
     departureAt: "08:00",
     color: "#4f46e5",
+    vehicleType: "CAR",
     routeCoordinates: [
       { latitude: 12.5854, longitude: -7.9502 },
       { latitude: 12.6, longitude: -7.97 },
@@ -197,6 +205,7 @@ export const otherDriversRoutes: OtherDriverRoute[] = [
     reservedSeats: 0,
     departureAt: "19:00",
     color: "#be185d",
+    vehicleType: "CAR",
     routeCoordinates: [
       { latitude: 12.6337, longitude: -8.0059 },
       { latitude: 12.62, longitude: -8.008 },

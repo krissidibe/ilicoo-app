@@ -3,7 +3,11 @@
  * Inspired by API: Route, RoutePassenger, User
  */
 
-export type PassengerRequestStatus = "PENDING" | "ACCEPTED" | "REJECTED";
+export type PassengerRequestStatus =
+  | "PENDING"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "COMPLETED";
 
 export type PassengerRequest = {
   id: string;
@@ -26,6 +30,8 @@ export type PassengerRequest = {
   price?: string;
   distanceKm?: number;
   routeCoordinates?: { latitude: number; longitude: number }[];
+  ratedByDriver?: boolean;
+  reportedByDriver?: boolean;
 };
 
 export type MyPublishedTripStatus = "En attente" | "En cours" | "Termine" | "Annule";

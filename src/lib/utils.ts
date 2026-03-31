@@ -37,6 +37,35 @@ export function calculateTripPrice(
   return roundUpToNearest10(rawTripPrice);
 }
 
+/** Prix moto = (prix voiture × 2) / 3 — aligné sur le backend `motorcyclePriceFromCarTripPrice` */
+export function motorcycleTripPriceFromCarTripPrice(carTripPrice: number): number {
+  return roundUpToNearest10((carTripPrice * 2) / 3);
+}
+
+export function tripPriceForVehicle(
+  distanceKm: number,
+  passengers: number,
+  vehicleType: "CAR" | "MOTORCYCLE",
+): number {
+  const carTrip = calculateTripPrice(distanceKm, passengers);
+  if (vehicleType === "MOTORCYCLE") {
+    return motorcycleTripPriceFromCarTripPrice(carTrip);
+  }
+  return carTrip;
+}
+
+export function formatTripPriceForVehicle(
+  distanceKm: number,
+  passengers: number,
+  vehicleType: "CAR" | "MOTORCYCLE",
+  showCurrency = true,
+): string {
+  return formatPriceDisplay(
+    tripPriceForVehicle(distanceKm, passengers, vehicleType),
+    showCurrency,
+  );
+}
+
 /**
  * Calcule et formate le prix selon la distance et le nombre de places
  * Utilise la même formule que le backend (pricing.ts)

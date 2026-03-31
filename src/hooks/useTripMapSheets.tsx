@@ -134,7 +134,10 @@ export function useTripMapSheets(handlers: TripMapSheetHandlers) {
     if (!hasCoords) return;
 
     const allPassengers = trip.passengers.filter(
-      (p) => p.status === "PENDING" || p.status === "ACCEPTED",
+      (p) =>
+        p.status === "PENDING" ||
+        p.status === "ACCEPTED" ||
+        p.status === "COMPLETED",
     );
 
     const allPoints: { lat: number; lng: number }[] = [];
@@ -272,7 +275,11 @@ export function useTripMapSheets(handlers: TripMapSheetHandlers) {
                   {p.name}
                 </Text>
                 <Text className="text-[10px] text-muted-foreground">
-                  {p.status === "ACCEPTED" ? "Accepté" : "En attente"}
+                  {p.status === "ACCEPTED"
+                    ? "Accepté"
+                    : p.status === "COMPLETED"
+                      ? "Terminé"
+                      : "En attente"}
                 </Text>
               </View>
               {p.status === "PENDING" ? (

@@ -25,6 +25,8 @@ export type SearchRoutesParams = {
   pickupLng: number;
   dropLat: number;
   dropLng: number;
+  /** Heure de recherche : trajets du jour entre (searchAt − 1h) et fin de journée */
+  searchAt: string;
 };
 
 export const searchRoutes = (params: SearchRoutesParams) => {
@@ -34,22 +36,27 @@ export const searchRoutes = (params: SearchRoutesParams) => {
     pickupLng: String(params.pickupLng),
     dropLat: String(params.dropLat),
     dropLng: String(params.dropLng),
+    searchAt: params.searchAt,
   });
   return queryOptions({
     queryKey: ["routes", "search", params],
     queryFn: () =>
-      extractData<(RouteApi & { user?: { id: string; name: string; image: string | null; phoneNumber: string; phoneDialCode: string } })[]>(
-        apiFetch(`routes?${q}`) as Promise<{ success: boolean; data?: (RouteApi & { user?: { id: string; name: string; image: string | null; phoneNumber: string; phoneDialCode: string } })[] }>
+      extractData<RouteApi[]>(
+        apiFetch(`routes?${q}`) as Promise<{ success: boolean; data?: RouteApi[] }>
       ),
   });
 };
 
-export const getAllRoutes = () => {
+export const getAllRoutes = (searchAtIso?: string) => {
+  const qs =
+    searchAtIso != null
+      ? `mode=all&searchAt=${encodeURIComponent(searchAtIso)}`
+      : "mode=all";
   return queryOptions({
-    queryKey: ["routes", "all"],
+    queryKey: ["routes", "all", searchAtIso ?? "now"],
     queryFn: () =>
-      extractData<(RouteApi & { user?: { id: string; name: string; image: string | null; phoneNumber: string; phoneDialCode: string } })[]>(
-        apiFetch("routes?mode=all") as Promise<{ success: boolean; data?: (RouteApi & { user?: { id: string; name: string; image: string | null; phoneNumber: string; phoneDialCode: string } })[] }>
+      extractData<RouteApi[]>(
+        apiFetch(`routes?${qs}`) as Promise<{ success: boolean; data?: RouteApi[] }>
       ),
   });
 };
@@ -66,6 +73,8 @@ export type CreateRouteParams = {
   durationMin: number;
   availableSeats?: number;
   departureAt?: string;
+  /** Véhicule utilisé pour la tarification (voiture vs moto) */
+  vehicleId?: string;
 };
 
 export const createRoute = async (params: CreateRouteParams) => {
@@ -83,6 +92,7 @@ export const createRoute = async (params: CreateRouteParams) => {
       durationMin: params.durationMin,
       availableSeats: params.availableSeats ?? 1,
       departureAt: params.departureAt ?? null,
+      ...(params.vehicleId ? { vehicleId: params.vehicleId } : {}),
     }),
   });
   const json = res as { success: boolean; data?: RouteApi };
