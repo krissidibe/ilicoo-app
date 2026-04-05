@@ -44,21 +44,21 @@ export const CommissionPendingModal = ({
             color={twoOrMore ? "#dc2626" : "#6366f1"}
             style={{ marginBottom: 12 }}
           />
-          <Text className="mb-1 text-lg font-bold text-foreground text-center">
+          <Text className="mb-1 text-lg font-bold text-center text-foreground">
             {twoOrMore ? "Commissions non payées" : "Commission à payer"}
           </Text>
 
           {twoOrMore ? (
             <>
-              <Text className="mb-3 text-sm text-center text-foreground leading-5">
+              <Text className="mb-3 text-sm leading-5 text-center text-foreground">
                 Vous avez {count} commissions non payées. Si vous ne les payez
-                pas au bout de 24h, votre trajet sera bloqué et vos trajets
+                pas au bout de 24h, votre compte sera bloqué et vos trajets
                 futurs seront annulés.
               </Text>
               {pendingCommissionTotal != null && pendingCommissionTotal > 0 ? (
                 <Text className="mb-4 text-sm font-semibold text-center text-amber-800">
-                  Total dû :{" "}
-                  {pendingCommissionTotal.toLocaleString("fr-FR")} FCFA
+                  Total dû : {pendingCommissionTotal.toLocaleString("fr-FR")}{" "}
+                  FCFA
                 </Text>
               ) : null}
             </>

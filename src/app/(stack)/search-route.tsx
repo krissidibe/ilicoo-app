@@ -567,7 +567,7 @@ const SearchRouteScreen = () => {
                 Choisir un trajet
               </Text>
               <Text className="mt-0.5 text-[11px] text-center text-white/80">
-                Départs à moins de 3 km du vôtre — du plus proche au plus loin
+                Trajets disponibles du plus proche au plus loin
               </Text>
             </View>
             {selectedDriverId ? (
@@ -930,7 +930,10 @@ const SearchRouteScreen = () => {
                             À{" "}
                             {driver.distanceFromSearchPickupKm.toLocaleString(
                               "fr-FR",
-                              { maximumFractionDigits: 2, minimumFractionDigits: 0 },
+                              {
+                                maximumFractionDigits: 2,
+                                minimumFractionDigits: 0,
+                              },
                             )}{" "}
                             km de votre point de départ
                           </Text>
