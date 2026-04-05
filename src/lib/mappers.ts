@@ -6,7 +6,11 @@ import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import type { MyPublishedTrip, MyPublishedTripStatus, PassengerRequest, PassengerRequestStatus } from "@/src/data/myPublishedTrips";
 import type { OtherDriverRoute } from "@/src/data/otherDriversRoutes";
 import { formatDepartureLabel } from "@/src/lib/departureDisplay";
-import { formatPrice, formatPriceDisplay, calculateTripPrice } from "@/src/lib/utils";
+import {
+  formatPrice,
+  formatPriceDisplay,
+  tripPriceForVehicle,
+} from "@/src/lib/utils";
 
 const ROUTE_PASSENGER_STATUS_TO_UI: Record<string, TripStatus> = {
   COMPLETED: "Termine",
@@ -28,7 +32,7 @@ const PASSENGER_STATUS_UI: Record<string, PassengerRequestStatus> = {
   PENDING: "PENDING",
   ACCEPTED: "ACCEPTED",
   REJECTED: "REJECTED",
-  CANCELLED: "REJECTED",
+  CANCELLED: "CANCELLED",
   COMPLETED: "COMPLETED",
 };
 
@@ -148,10 +152,21 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
     r.vehicle?.name ?? r.user?.vehicles?.[0]?.name ?? "Véhicule";
   const totalSeats = r.availableSeats + (r.passengers?.reduce((s, p) => s + p.seats, 0) ?? 0);
   const totalPassengers = (r.passengers ?? []).reduce((s, p) => s + p.seats, 0) || 1;
+  const routeVehicleType: "CAR" | "MOTORCYCLE" =
+    r.vehicleType === "MOTORCYCLE" || r.vehicle?.type === "MOTORCYCLE"
+      ? "MOTORCYCLE"
+      : "CAR";
   const passengers: PassengerRequest[] = (r.passengers ?? []).map((p) => {
     const passengerPrice = p.price != null
       ? Number(p.price)
-      : (() => { const tp = calculateTripPrice(r.distanceKm, totalPassengers); return (tp / totalPassengers) * p.seats; })();
+      : (() => {
+          const tp = tripPriceForVehicle(
+            r.distanceKm,
+            totalPassengers,
+            routeVehicleType,
+          );
+          return (tp / totalPassengers) * p.seats;
+        })();
     const pPickupLat = p.pickupLat ?? r.pickupLat;
     const pPickupLng = p.pickupLng ?? r.pickupLng;
     const pDropLat = p.dropLat ?? r.dropLat;
@@ -198,7 +213,7 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
     time: r.departureAt
       ? new Date(r.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
       : "—",
-    price: formatPrice(r.distanceKm, 1),
+    price: formatPriceDisplay(r.price),
     status,
     availableSeats: r.availableSeats,
     totalSeats,
@@ -252,6 +267,7 @@ export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { id: string; 
   ],
   color: COLORS[index % COLORS.length],
   vehicleType,
+  distanceFromSearchPickupKm: r.searchPickupDistanceKm,
 };};
 
 export const mapVehicleToUi = (v: VehicleApi) => ({

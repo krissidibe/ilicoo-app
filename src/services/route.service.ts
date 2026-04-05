@@ -27,6 +27,8 @@ export type SearchRoutesParams = {
   dropLng: number;
   /** Heure de recherche : trajets du jour entre (searchAt − 1h) et fin de journée */
   searchAt: string;
+  /** Filtre optionnel : nom de quartier (correspondance sur l’adresse de départ du trajet) */
+  pickupQuartier?: string;
 };
 
 export const searchRoutes = (params: SearchRoutesParams) => {
@@ -38,6 +40,9 @@ export const searchRoutes = (params: SearchRoutesParams) => {
     dropLng: String(params.dropLng),
     searchAt: params.searchAt,
   });
+  if (params.pickupQuartier?.trim()) {
+    q.set("pickupQuartier", params.pickupQuartier.trim());
+  }
   return queryOptions({
     queryKey: ["routes", "search", params],
     queryFn: () =>

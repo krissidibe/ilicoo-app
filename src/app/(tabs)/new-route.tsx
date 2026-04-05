@@ -27,7 +27,7 @@ import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -83,6 +83,8 @@ const Setting = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("mes-trajets");
   const [commissionPopupVisible, setCommissionPopupVisible] = useState(false);
+  /** Afficher uniquement les trajets ayant au moins une demande PENDING */
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
 
   const { data: routesData, isLoading: isLoadingRoutes } = useQuery({
     ...getMyRoutes(),
@@ -111,14 +113,41 @@ const Setting = () => {
   );
 
   useEffect(() => {
-    if ((paymentsData?.pendingPayments?.length ?? 0) > 0) {
+    if (
+      (paymentsData?.pendingPayments?.length ?? 0) > 0 &&
+      !paymentsData?.isAccountBlocked
+    ) {
       setCommissionPopupVisible(true);
     }
-  }, [paymentsData?.pendingPayments?.length]);
+  }, [paymentsData?.pendingPayments?.length, paymentsData?.isAccountBlocked]);
 
   const trips: MyPublishedTrip[] = (routesData ?? []).map(
     mapRouteToMyPublishedTrip,
   );
+
+  const totalPendingRequests = useMemo(
+    () =>
+      trips.reduce(
+        (sum, t) =>
+          sum + t.passengers.filter((p) => p.status === "PENDING").length,
+        0,
+      ),
+    [trips],
+  );
+
+  const tripsFiltered = useMemo(
+    () =>
+      showPendingOnly
+        ? trips.filter((t) => t.passengers.some((p) => p.status === "PENDING"))
+        : trips,
+    [trips, showPendingOnly],
+  );
+
+  useEffect(() => {
+    if (totalPendingRequests === 0) {
+      setShowPendingOnly(false);
+    }
+  }, [totalPendingRequests]);
   const vehicules: Vehicule[] = (vehiclesData ?? []).map(mapVehicleToUi);
   const firstPendingPayment = paymentsData?.pendingPayments?.[0];
 
@@ -291,7 +320,11 @@ const Setting = () => {
   return (
     <>
       <CommissionPendingModal
-        visible={commissionPopupVisible && firstPendingPayment != null}
+        visible={
+          commissionPopupVisible &&
+          firstPendingPayment != null &&
+          !paymentsData?.isAccountBlocked
+        }
         onClose={() => setCommissionPopupVisible(false)}
         onPay={() => {
           setCommissionPopupVisible(false);
@@ -308,7 +341,7 @@ const Setting = () => {
                 ? "Publier un trajet"
                 : "Mes véhicules"}
             </Text>
-            {activeTab === "mes-trajets" ? (
+            {activeTab === "mes-trajets" && !paymentsData?.isAccountBlocked ? (
               <TouchableOpacity
                 onPress={() => router.push("/(stack)/share-route" as any)}
                 className="p-2 rounded-full bg-white/0"
@@ -320,365 +353,484 @@ const Setting = () => {
         </View>
 
         <View className="flex-1 px-5 pt-4">
-          <View className="hidden flex-row p-1 mb-4 rounded-xl bg-muted">
-            <TouchableOpacity
-              onPress={() => setActiveTab("mes-trajets")}
-              className={cn(
-                "flex-1 py-2 rounded-lg items-center justify-center",
-                activeTab === "mes-trajets" && "bg-background shadow-sm",
-              )}
-            >
-              <Text
-                className={cn(
-                  "font-semibold text-sm",
-                  activeTab === "mes-trajets"
-                    ? "text-foreground"
-                    : "text-muted-foreground",
-                )}
-              >
-                Mes trajets
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setActiveTab("vehicules")}
-              className={cn(
-                "flex-1 py-2 rounded-lg items-center justify-center",
-                activeTab === "vehicules" && "bg-background shadow-sm",
-              )}
-            >
-              <Text
-                className={cn(
-                  "font-semibold text-sm",
-                  activeTab === "vehicules"
-                    ? "text-foreground"
-                    : "text-muted-foreground",
-                )}
-              >
-                Véhicules
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {activeTab === "mes-trajets" ? (
-            <ScrollView
-              className="flex-1"
-              contentContainerClassName="px-0 pb-8"
-              showsVerticalScrollIndicator={false}
-            >
-              {activeTripInProgress ? (
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(stack)/active-trip",
-                      params: { routeId: activeTripInProgress.id },
-                    } as any)
-                  }
-                  className="flex-row gap-3 items-center p-4 mb-4 bg-blue-50 rounded-2xl border border-blue-300"
+          {paymentsData?.isAccountBlocked ? (
+            <View className="flex-1 justify-center px-2 py-10">
+              <View className="items-center p-6 bg-red-50 rounded-3xl border border-red-200">
+                <MaterialCommunityIcons
+                  name="account-lock"
+                  size={56}
+                  color="#b91c1c"
+                />
+                <Text className="mt-4 text-xl font-bold text-center text-red-900">
+                  Compte bloqué
+                </Text>
+                <Text className="mt-2 text-sm text-center text-red-800/90">
+                  Vous avez deux commissions non payées. Le délai de 24h après
+                  la fin du second trajet est dépassé. Réglez vos commissions
+                  pour débloquer la publication de trajets.
+                </Text>
+                <Button
+                  className="mt-6 w-full rounded-xl"
+                  onPress={() => router.push("/(stack)/payment" as any)}
                 >
-                  <MaterialCommunityIcons
-                    name="map-marker-path"
-                    size={28}
-                    color="#2563eb"
-                  />
-                  <View className="flex-1">
-                    <Text className="text-sm font-bold text-blue-900">
-                      Trajet en cours
-                    </Text>
-                    <Text
-                      className="text-xs text-blue-800/90"
-                      numberOfLines={2}
-                    >
-                      {activeTripInProgress.from} → {activeTripInProgress.to}
-                    </Text>
-                    <Text className="mt-1 text-xs font-semibold text-primary">
-                      Reprendre la carte du trajet
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={22} color="#2563eb" />
+                  <Text className="font-semibold text-white">
+                    Payer les commissions
+                  </Text>
+                </Button>
+              </View>
+            </View>
+          ) : null}
+
+          {!paymentsData?.isAccountBlocked ? (
+            <>
+              <View className="hidden flex-row p-1 mb-4 rounded-xl bg-muted">
+                <TouchableOpacity
+                  onPress={() => setActiveTab("mes-trajets")}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg items-center justify-center",
+                    activeTab === "mes-trajets" && "bg-background shadow-sm",
+                  )}
+                >
+                  <Text
+                    className={cn(
+                      "font-semibold text-sm",
+                      activeTab === "mes-trajets"
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    Mes trajets
+                  </Text>
                 </TouchableOpacity>
-              ) : null}
-              {/* Gains */}
-              <View className="p-4 mb-6 rounded-2xl border border-primary/20 bg-primary/10">
-                <View className="flex-row justify-between items-center">
-                  <Text className="text-sm opacity-70">Gains gagnés</Text>
-                  {driverStats && driverStats.completedCount > 0 ? (
-                    <View className="flex-row items-center px-2 py-1 rounded-full bg-emerald-500/15">
-                      <Ionicons
-                        name="trending-up-outline"
-                        size={14}
-                        color="#10b981"
-                      />
-                      <Text className="ml-1 text-xs text-emerald-600">
-                        {driverStats.completedCount} trajet(s) terminé(s)
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text className="mt-2 text-3xl font-bold">
-                  {(driverStats?.totalGains ?? 0).toLocaleString("fr-FR")} FCFA
-                </Text>
-                <Text className="mt-1 text-xs opacity-60">
-                  Cumul des trajets terminés
-                </Text>
-              </View>
-
-              <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-lg font-semibold">
-                  Mes trajets publiés
-                </Text>
-              </View>
-
-              <View className="gap-3">
-                {isLoadingRoutes ? (
-                  <ActivityIndicator
-                    size="large"
-                    color="#6366f1"
-                    className="py-8"
-                  />
-                ) : trips.length === 0 ? (
-                  <View className="items-center py-8">
-                    <Text className="text-muted-foreground">
-                      Aucun trajet publié
-                    </Text>
-                  </View>
-                ) : (
-                  trips.map((trip, index) => {
-                    const statusStyle = statusConfig(trip.status);
-                    const pendingCount = trip.passengers.filter(
-                      (p) => p.status === "PENDING",
-                    ).length;
-                    const acceptedCount = trip.passengers.filter(
-                      (p) =>
-                        p.status === "ACCEPTED" || p.status === "COMPLETED",
-                    ).length;
-
-                    return (
-                      <Animated.View
-                        key={trip.id}
-                        entering={FadeInDown.delay(index * 80).duration(350)}
-                      >
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          className="p-4 bg-white rounded-2xl border border-gray-300 shadow-sm shadow-black/5"
-                          onPress={() => openTripSheet(trip)}
-                        >
-                          <View className="flex-row justify-between items-center mb-3">
-                            <View className="flex-row flex-1 items-center pr-3">
-                              <View className="p-2 mr-2 rounded-full bg-blue-500/10">
-                                <MaterialCommunityIcons
-                                  name="map-marker-outline"
-                                  size={18}
-                                  color="#2563eb"
-                                />
-                              </View>
-                              <View className="flex-1">
-                                <Text className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                  Départ
-                                </Text>
-                                <Text
-                                  className="text-sm font-semibold text-foreground"
-                                  numberOfLines={1}
-                                >
-                                  {trip.from}
-                                </Text>
-                              </View>
-                            </View>
-                            <View
-                              className={cn(
-                                "flex-row items-center rounded-full px-2 py-1",
-                                statusStyle.statusColor,
-                              )}
-                            >
-                              <MaterialCommunityIcons
-                                name={statusStyle.icon as any}
-                                size={14}
-                                color={statusStyle.statusIconColor}
-                              />
-                              <Text className="ml-1 text-xs font-semibold">
-                                {trip.status}
-                              </Text>
-                            </View>
-                          </View>
-
-                          <View className="flex-row items-center mb-3">
-                            <View className="p-2 mr-2 rounded-full bg-rose-500/10">
-                              <MaterialCommunityIcons
-                                name="map-marker-outline"
-                                size={18}
-                                color="#e11d48"
-                              />
-                            </View>
-                            <View className="flex-1">
-                              <Text className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                Arrivée
-                              </Text>
-                              <Text
-                                className="text-sm font-semibold text-foreground"
-                                numberOfLines={1}
-                              >
-                                {trip.to}
-                              </Text>
-                            </View>
-                          </View>
-
-                          <View className="flex-row justify-between items-center">
-                            <View className="flex-row gap-3 items-center">
-                              <View className="flex-row items-center">
-                                <MaterialCommunityIcons
-                                  name="clock-outline"
-                                  size={16}
-                                  color="#9ca3af"
-                                />
-                                <Text className="ml-1 text-xs text-muted-foreground">
-                                  {trip.date} {trip.time}
-                                </Text>
-                              </View>
-                              <View className="flex-row flex-1 justify-end items-center">
-                                <MaterialCommunityIcons
-                                  name="cash-multiple"
-                                  size={16}
-                                  color="#10b981"
-                                />
-                                <Text className="ml-1 text-sm font-bold text-foreground">
-                                  {trip.price}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-
-                          <View className="flex-row flex-wrap gap-2 items-center mt-2">
-                            {pendingCount > 0 ? (
-                              <View className="flex-row items-center">
-                                <View className="flex-row -space-x-2">
-                                  {trip.passengers
-                                    .filter((p) => p.status === "PENDING")
-                                    .slice(0, 3)
-                                    .map((p) => (
-                                      <Avatar
-                                        key={p.id}
-                                        className="border-2 border-white size-7"
-                                        alt={p.name}
-                                      >
-                                        <AvatarImage
-                                          source={{ uri: p.image }}
-                                        />
-                                        <AvatarFallback>
-                                          <Text className="text-[8px]">
-                                            {p.name[0]}
-                                          </Text>
-                                        </AvatarFallback>
-                                      </Avatar>
-                                    ))}
-                                </View>
-                                <View className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/15">
-                                  <Text className="text-xs font-semibold text-amber-700">
-                                    {pendingCount} demande
-                                    {pendingCount > 1 ? "s" : ""} en attente
-                                  </Text>
-                                </View>
-                              </View>
-                            ) : null}
-                            {acceptedCount > 0 ? (
-                              <View className="px-2 py-0.5 rounded-full bg-emerald-500/15">
-                                <Text className="text-xs font-semibold text-emerald-700">
-                                  {acceptedCount} demande
-                                  {acceptedCount > 1 ? "s" : ""} acceptée
-                                  {acceptedCount > 1 ? "s" : ""}
-                                </Text>
-                              </View>
-                            ) : null}
-                            {trip.passengers.length === 0 ? (
-                              <View className="px-2 py-0.5 rounded-full bg-gray-200">
-                                <Text className="text-xs font-medium text-muted-foreground">
-                                  Aucune demande
-                                </Text>
-                              </View>
-                            ) : null}
-                          </View>
-                        </TouchableOpacity>
-                      </Animated.View>
-                    );
-                  })
-                )}
-              </View>
-            </ScrollView>
-          ) : (
-            <ScrollView
-              className="flex-1"
-              contentContainerClassName="px-0 pb-8"
-              showsVerticalScrollIndicator={false}
-            >
-              <View className="flex-row justify-between items-center mb-5">
-                <Text className="text-lg font-semibold">
-                  Choisir un type de véhicule
-                </Text>
                 <TouchableOpacity
-                  onPress={() => router.push("/(stack)/manage-vehicle" as any)}
+                  onPress={() => setActiveTab("vehicules")}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg items-center justify-center",
+                    activeTab === "vehicules" && "bg-background shadow-sm",
+                  )}
                 >
-                  <Text className="font-medium text-primary">Gérer</Text>
+                  <Text
+                    className={cn(
+                      "font-semibold text-sm",
+                      activeTab === "vehicules"
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    Véhicules
+                  </Text>
                 </TouchableOpacity>
               </View>
 
-              <View className="gap-4">
-                {isLoadingVehicles ? (
-                  <ActivityIndicator
-                    size="large"
-                    color="#6366f1"
-                    className="py-8"
-                  />
-                ) : vehicules.length === 0 ? (
-                  <View className="items-center py-8">
-                    <Text className="text-muted-foreground">
-                      Aucun véhicule
-                    </Text>
-                  </View>
-                ) : (
-                  vehicules.map((vehicule) => (
+              {activeTab === "mes-trajets" ? (
+                <ScrollView
+                  className="flex-1"
+                  contentContainerClassName="px-0 pb-8"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {activeTripInProgress ? (
                     <TouchableOpacity
-                      onPress={() => openVehiculeModal(vehicule)}
-                      className={cn(
-                        "flex-row items-center rounded-2xl border border-gray p-4 opacity-60",
-                        vehicule.default &&
-                          "border-primary bg-primary/5 opacity-100",
-                      )}
-                      key={vehicule.id}
+                      activeOpacity={0.9}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(stack)/active-trip",
+                          params: { routeId: activeTripInProgress.id },
+                        } as any)
+                      }
+                      className="flex-row gap-3 items-center p-4 mb-4 bg-blue-50 rounded-2xl border border-blue-300"
                     >
-                      <View className="justify-center items-center bg-gray-200 rounded-xl size-12">
+                      <MaterialCommunityIcons
+                        name="map-marker-path"
+                        size={28}
+                        color="#2563eb"
+                      />
+                      <View className="flex-1">
+                        <Text className="text-sm font-bold text-blue-900">
+                          Trajet en cours
+                        </Text>
+                        <Text
+                          className="text-xs text-blue-800/90"
+                          numberOfLines={2}
+                        >
+                          {activeTripInProgress.from} →{" "}
+                          {activeTripInProgress.to}
+                        </Text>
+                        <Text className="mt-1 text-xs font-semibold text-primary">
+                          Reprendre la carte du trajet
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={22}
+                        color="#2563eb"
+                      />
+                    </TouchableOpacity>
+                  ) : null}
+                  {totalPendingRequests > 0 ? (
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      onPress={() => setShowPendingOnly((prev) => !prev)}
+                      className={cn(
+                        "p-4 mb-4 rounded-2xl border-2",
+                        showPendingOnly
+                          ? "bg-amber-100 border-amber-600"
+                          : "bg-amber-50 border-amber-300/60",
+                      )}
+                    >
+                      <View className="flex-row gap-3 items-center">
+                        <View className="justify-center items-center rounded-full size-11 bg-amber-500/20">
+                          <MaterialCommunityIcons
+                            name="account-clock-outline"
+                            size={24}
+                            color="#b45309"
+                          />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-base font-extrabold text-amber-950">
+                            Demandes en attente
+                          </Text>
+                          <Text className="mt-0.5 text-xs text-amber-900/85">
+                            {totalPendingRequests} demande
+                            {totalPendingRequests > 1 ? "s" : ""} à traiter —{" "}
+                            {showPendingOnly
+                              ? "touchez pour afficher tous les trajets"
+                              : "touchez pour filtrer la liste"}
+                          </Text>
+                        </View>
                         <Ionicons
                           name={
-                            vehicule.type === "MOTORCYCLE"
-                              ? "bicycle-outline"
-                              : "car-sport-outline"
+                            showPendingOnly ? "chevron-back" : "chevron-forward"
                           }
-                          size={24}
-                          color="black"
+                          size={22}
+                          color="#b45309"
                         />
                       </View>
-                      <View className="flex-1 pl-3">
-                        <Text className="text-base font-semibold">
-                          {vehicule.name}
-                        </Text>
-                        <Text className="text-xs opacity-50">
-                          {vehicule.default
-                            ? "Véhicule par défaut"
-                            : "Véhicule secondaire"}
-                        </Text>
-                      </View>
-
-                      {vehicule.default ? (
-                        <View className="px-2 py-1 rounded-full bg-primary/15">
-                          <Text className="text-xs font-medium text-primary">
-                            Sélectionné
+                    </TouchableOpacity>
+                  ) : null}
+                  {/* Gains */}
+                  <View className="p-4 mb-6 rounded-2xl border border-primary/20 bg-primary/10">
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-sm opacity-70">Mes gains</Text>
+                      {driverStats && driverStats.completedCount > 0 ? (
+                        <View className="flex-row items-center px-2 py-1 rounded-full bg-emerald-500/15">
+                          <Ionicons
+                            name="trending-up-outline"
+                            size={14}
+                            color="#10b981"
+                          />
+                          <Text className="ml-1 text-xs text-emerald-600">
+                            {driverStats.completedCount} trajet(s) terminé(s)
                           </Text>
                         </View>
                       ) : null}
+                    </View>
+                    <Text className="mt-2 text-3xl font-bold">
+                      {(driverStats?.totalGains ?? 0).toLocaleString("fr-FR")}{" "}
+                      FCFA
+                    </Text>
+                    <Text className="mt-1 text-xs opacity-60">
+                      Cumul des trajets terminés
+                    </Text>
+                  </View>
+
+                  <View className="flex-row justify-between items-center mb-3">
+                    <Text className="flex-1 mr-2 text-lg font-semibold">
+                      {showPendingOnly
+                        ? "Trajets avec demandes en attente"
+                        : "Mes trajets publiés"}
+                    </Text>
+                    {showPendingOnly ? (
+                      <TouchableOpacity
+                        onPress={() => setShowPendingOnly(false)}
+                        className="flex-row items-center px-3 py-2 rounded-xl border border-primary/30 bg-primary/10"
+                      >
+                        <Ionicons
+                          name="close-circle"
+                          size={18}
+                          color="#6366f1"
+                        />
+                        <Text className="ml-1 text-sm font-semibold text-primary">
+                          Tout afficher
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  <View className="gap-3">
+                    {isLoadingRoutes ? (
+                      <ActivityIndicator
+                        size="large"
+                        color="#6366f1"
+                        className="py-8"
+                      />
+                    ) : trips.length === 0 ? (
+                      <View className="items-center py-8">
+                        <Text className="text-muted-foreground">
+                          Aucun trajet publié
+                        </Text>
+                      </View>
+                    ) : tripsFiltered.length === 0 ? (
+                      <View className="items-center px-4 py-10">
+                        <MaterialCommunityIcons
+                          name="filter-remove-outline"
+                          size={40}
+                          color="#94a3b8"
+                        />
+                        <Text className="mt-3 text-center text-muted-foreground">
+                          Aucun trajet ne correspond à ce filtre pour le moment.
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => setShowPendingOnly(false)}
+                          className="px-4 py-2 mt-4 rounded-xl bg-primary"
+                        >
+                          <Text className="text-sm font-semibold text-white">
+                            Effacer le filtre
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      tripsFiltered.map((trip, index) => {
+                        const statusStyle = statusConfig(trip.status);
+                        const pendingCount = trip.passengers.filter(
+                          (p) => p.status === "PENDING",
+                        ).length;
+                        const acceptedCount = trip.passengers.filter(
+                          (p) =>
+                            p.status === "ACCEPTED" || p.status === "COMPLETED",
+                        ).length;
+
+                        return (
+                          <Animated.View
+                            key={trip.id}
+                            entering={FadeInDown.delay(index * 80).duration(
+                              350,
+                            )}
+                          >
+                            <TouchableOpacity
+                              activeOpacity={0.9}
+                              className="p-4 bg-white rounded-2xl border border-gray-300 shadow-sm shadow-black/5"
+                              onPress={() => openTripSheet(trip)}
+                            >
+                              <View className="flex-row justify-between items-center mb-3">
+                                <View className="flex-row flex-1 items-center pr-3">
+                                  <View className="p-2 mr-2 rounded-full bg-blue-500/10">
+                                    <MaterialCommunityIcons
+                                      name="map-marker-outline"
+                                      size={18}
+                                      color="#2563eb"
+                                    />
+                                  </View>
+                                  <View className="flex-1">
+                                    <Text className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                      Départ
+                                    </Text>
+                                    <Text
+                                      className="text-sm font-semibold text-foreground"
+                                      numberOfLines={1}
+                                    >
+                                      {trip.from}
+                                    </Text>
+                                  </View>
+                                </View>
+                                <View
+                                  className={cn(
+                                    "flex-row items-center rounded-full px-2 py-1",
+                                    statusStyle.statusColor,
+                                  )}
+                                >
+                                  <MaterialCommunityIcons
+                                    name={statusStyle.icon as any}
+                                    size={14}
+                                    color={statusStyle.statusIconColor}
+                                  />
+                                  <Text className="ml-1 text-xs font-semibold">
+                                    {trip.status}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              <View className="flex-row items-center mb-3">
+                                <View className="p-2 mr-2 rounded-full bg-rose-500/10">
+                                  <MaterialCommunityIcons
+                                    name="map-marker-outline"
+                                    size={18}
+                                    color="#e11d48"
+                                  />
+                                </View>
+                                <View className="flex-1">
+                                  <Text className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                    Arrivée
+                                  </Text>
+                                  <Text
+                                    className="text-sm font-semibold text-foreground"
+                                    numberOfLines={1}
+                                  >
+                                    {trip.to}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              <View className="flex-row justify-between items-center">
+                                <View className="flex-row gap-3 items-center">
+                                  <View className="flex-row items-center">
+                                    <MaterialCommunityIcons
+                                      name="clock-outline"
+                                      size={16}
+                                      color="#9ca3af"
+                                    />
+                                    <Text className="ml-1 text-xs text-muted-foreground">
+                                      {trip.date} {trip.time}
+                                    </Text>
+                                  </View>
+                                  <View className="flex-row flex-1 justify-end items-center">
+                                    <MaterialCommunityIcons
+                                      name="cash-multiple"
+                                      size={16}
+                                      color="#10b981"
+                                    />
+                                    <Text className="ml-1 text-sm font-bold text-foreground">
+                                      {trip.price}
+                                    </Text>
+                                  </View>
+                                </View>
+                              </View>
+
+                              <View className="flex-row flex-wrap gap-2 items-center mt-2">
+                                {pendingCount > 0 ? (
+                                  <View className="flex-row items-center">
+                                    <View className="flex-row -space-x-2">
+                                      {trip.passengers
+                                        .filter((p) => p.status === "PENDING")
+                                        .slice(0, 3)
+                                        .map((p) => (
+                                          <Avatar
+                                            key={p.id}
+                                            className="border-2 border-white size-7"
+                                            alt={p.name}
+                                          >
+                                            <AvatarImage
+                                              source={{ uri: p.image }}
+                                            />
+                                            <AvatarFallback>
+                                              <Text className="text-[8px]">
+                                                {p.name[0]}
+                                              </Text>
+                                            </AvatarFallback>
+                                          </Avatar>
+                                        ))}
+                                    </View>
+                                    <View className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/15">
+                                      <Text className="text-xs font-semibold text-amber-700">
+                                        {pendingCount} demande
+                                        {pendingCount > 1 ? "s" : ""} en attente
+                                      </Text>
+                                    </View>
+                                  </View>
+                                ) : null}
+                                {acceptedCount > 0 ? (
+                                  <View className="px-2 py-0.5 rounded-full bg-emerald-500/15">
+                                    <Text className="text-xs font-semibold text-emerald-700">
+                                      {acceptedCount} demande
+                                      {acceptedCount > 1 ? "s" : ""} acceptée
+                                      {acceptedCount > 1 ? "s" : ""}
+                                    </Text>
+                                  </View>
+                                ) : null}
+                                {pendingCount === 0 && acceptedCount === 0 ? (
+                                  <View className="px-2 py-0.5 rounded-full bg-gray-200">
+                                    <Text className="text-xs font-medium text-muted-foreground">
+                                      Aucune demande
+                                    </Text>
+                                  </View>
+                                ) : null}
+                              </View>
+                            </TouchableOpacity>
+                          </Animated.View>
+                        );
+                      })
+                    )}
+                  </View>
+                </ScrollView>
+              ) : (
+                <ScrollView
+                  className="flex-1"
+                  contentContainerClassName="px-0 pb-8"
+                  showsVerticalScrollIndicator={false}
+                >
+                  <View className="flex-row justify-between items-center mb-5">
+                    <Text className="text-lg font-semibold">
+                      Choisir un type de véhicule
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push("/(stack)/manage-vehicle" as any)
+                      }
+                    >
+                      <Text className="font-medium text-primary">Gérer</Text>
                     </TouchableOpacity>
-                  ))
-                )}
-              </View>
-            </ScrollView>
-          )}
+                  </View>
+
+                  <View className="gap-4">
+                    {isLoadingVehicles ? (
+                      <ActivityIndicator
+                        size="large"
+                        color="#6366f1"
+                        className="py-8"
+                      />
+                    ) : vehicules.length === 0 ? (
+                      <View className="items-center py-8">
+                        <Text className="text-muted-foreground">
+                          Aucun véhicule
+                        </Text>
+                      </View>
+                    ) : (
+                      vehicules.map((vehicule) => (
+                        <TouchableOpacity
+                          onPress={() => openVehiculeModal(vehicule)}
+                          className={cn(
+                            "flex-row items-center rounded-2xl border border-gray p-4 opacity-60",
+                            vehicule.default &&
+                              "border-primary bg-primary/5 opacity-100",
+                          )}
+                          key={vehicule.id}
+                        >
+                          <View className="justify-center items-center bg-gray-200 rounded-xl size-12">
+                            <Ionicons
+                              name={
+                                vehicule.type === "MOTORCYCLE"
+                                  ? "bicycle-outline"
+                                  : "car-sport-outline"
+                              }
+                              size={24}
+                              color="black"
+                            />
+                          </View>
+                          <View className="flex-1 pl-3">
+                            <Text className="text-base font-semibold">
+                              {vehicule.name}
+                            </Text>
+                            <Text className="text-xs opacity-50">
+                              {vehicule.default
+                                ? "Véhicule par défaut"
+                                : "Véhicule secondaire"}
+                            </Text>
+                          </View>
+
+                          {vehicule.default ? (
+                            <View className="px-2 py-1 rounded-full bg-primary/15">
+                              <Text className="text-xs font-medium text-primary">
+                                Sélectionné
+                              </Text>
+                            </View>
+                          ) : null}
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </View>
+                </ScrollView>
+              )}
+            </>
+          ) : null}
         </View>
       </View>
     </>

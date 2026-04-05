@@ -58,6 +58,8 @@ type RoutePoint = {
   longitude: number;
   label: string;
   address: string;
+  /** Si le départ vient de la liste des quartiers — filtre API optionnel */
+  quartierName?: string;
 };
 
 type Quartier = {
@@ -194,6 +196,7 @@ const SearchRouteScreen = () => {
       dropLat: arrival.latitude,
       dropLng: arrival.longitude,
       searchAt: searchAtIso,
+      pickupQuartier: departure.quartierName,
     };
   }, [departure, arrival, searchAtIso]);
 
@@ -209,6 +212,7 @@ const SearchRouteScreen = () => {
       dropLat: routesSearchParams?.dropLat ?? 0,
       dropLng: routesSearchParams?.dropLng ?? 0,
       searchAt: routesSearchParams?.searchAt ?? "1970-01-01T00:00:00.000Z",
+      pickupQuartier: routesSearchParams?.pickupQuartier,
     }),
     enabled: showMapResults && routesSearchParams != null,
     refetchInterval: 5000,
@@ -350,6 +354,7 @@ const SearchRouteScreen = () => {
       longitude: q.longitude,
       label: displayName,
       address: displayName,
+      quartierName: displayName,
     };
     setPendingPoint(pt);
     if (activeMapField === "depart" && arrival)
@@ -557,9 +562,14 @@ const SearchRouteScreen = () => {
             <TouchableOpacity onPress={() => setShowMapResults(false)}>
               <Ionicons name="chevron-back" size={24} color="white" />
             </TouchableOpacity>
-            <Text className="text-lg font-bold text-white">
-              Choisir un trajet
-            </Text>
+            <View className="flex-1 items-center px-2">
+              <Text className="text-lg font-bold text-center text-white">
+                Choisir un trajet
+              </Text>
+              <Text className="mt-0.5 text-[11px] text-center text-white/80">
+                Départs à moins de 3 km du vôtre — du plus proche au plus loin
+              </Text>
+            </View>
             {selectedDriverId ? (
               <TouchableOpacity
                 onPress={() => void handleReserve()}
@@ -909,6 +919,23 @@ const SearchRouteScreen = () => {
                           {driver.from}
                         </Text>
                       </View>
+                      {driver.distanceFromSearchPickupKm != null ? (
+                        <View className="flex-row gap-2 items-center mb-2">
+                          <Ionicons
+                            name="navigate-circle-outline"
+                            size={14}
+                            color="#6366f1"
+                          />
+                          <Text className="text-xs font-medium text-indigo-700">
+                            À{" "}
+                            {driver.distanceFromSearchPickupKm.toLocaleString(
+                              "fr-FR",
+                              { maximumFractionDigits: 2, minimumFractionDigits: 0 },
+                            )}{" "}
+                            km de votre point de départ
+                          </Text>
+                        </View>
+                      ) : null}
                       <View className="flex-row gap-2 items-center mb-2">
                         <Ionicons
                           name="flag-outline"

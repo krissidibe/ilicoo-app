@@ -25,6 +25,10 @@ export type PaymentsSummaryApi = {
   pendingCommission: number;
   canPublish: boolean;
   remainingBeforeBlock: number;
+  /** ISO — fin du délai de 24h après le 2ᵉ trajet impayé */
+  commissionBlockDeadlineAt?: string | null;
+  /** Compte conducteur bloqué (2 commissions non payées après le délai) */
+  isAccountBlocked?: boolean;
 };
 
 const extractData = async <T>(res: Promise<{ success: boolean; data?: T }>) => {

@@ -90,6 +90,8 @@ export type RouteApi = {
   updatedAt: string;
   user?: UserApi & { vehicles?: VehicleApi[] };
   passengers?: RoutePassengerApi[];
+  /** Distance (km) du départ du trajet au point de départ de recherche — renseigné en mode search */
+  searchPickupDistanceKm?: number;
 };
 
 export type RoutePassengerApi = {

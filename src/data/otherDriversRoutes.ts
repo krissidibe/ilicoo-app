@@ -28,6 +28,8 @@ export type OtherDriverRoute = {
   color: string; // for map polyline/marker
   /** Type du véhicule par défaut du conducteur */
   vehicleType: "CAR" | "MOTORCYCLE";
+  /** Distance du départ du chauffeur au point de départ recherché (km) */
+  distanceFromSearchPickupKm?: number;
 };
 
 export const otherDriversRoutes: OtherDriverRoute[] = [

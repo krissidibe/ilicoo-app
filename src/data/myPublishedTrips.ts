@@ -7,6 +7,7 @@ export type PassengerRequestStatus =
   | "PENDING"
   | "ACCEPTED"
   | "REJECTED"
+  | "CANCELLED"
   | "COMPLETED";
 
 export type PassengerRequest = {

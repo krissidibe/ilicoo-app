@@ -8,6 +8,7 @@ import {
 import { Text } from "@/src/components/ui/text";
 import { cn, formatPriceDisplay, tripPriceForVehicle } from "@/src/lib/utils";
 import { createRoute } from "@/src/services/route.service";
+import { getPaymentsSummary } from "@/src/services/payment.service";
 import { getVehicules } from "@/src/services/vehicle.service";
 import type { VehicleApi } from "@/src/types/api";
 import { calculateRouteWithGoogle } from "@/src/utils/routeGeometry";
@@ -160,6 +161,23 @@ const ShareRouteScreen = () => {
   );
 
   const { data: vehicles = [] } = useQuery(getVehicules());
+  const { data: paymentsData } = useQuery({
+    ...getPaymentsSummary(),
+    refetchInterval: 10_000,
+  });
+  const commissionBlockAlertShown = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!paymentsData?.isAccountBlocked || commissionBlockAlertShown.current) {
+      return;
+    }
+    commissionBlockAlertShown.current = true;
+    Alert.alert(
+      "Compte bloqué",
+      "Réglez vos commissions impayées pour publier un trajet.",
+      [{ text: "OK", onPress: () => router.back() }],
+    );
+  }, [paymentsData?.isAccountBlocked]);
   const selectedVehicle = selectedVehicleId
     ? vehicles.find((v) => v.id === selectedVehicleId)
     : null;
