@@ -82,11 +82,6 @@ const AuthIndex = () => {
 
   return (
     <View className="flex-1 bg-linear-to-b from-primary/5 to-background">
-      <Image
-        source={require("@/assets/app/images/fond.jpg")}
-        style={{ height: "100%", width: "100%", resizeMode: "cover" }}
-        className="absolute inset-0 blur-sm"
-      />
       {/* Fond décoratif */}
       <View className="overflow-hidden absolute inset-0">
         <Animated.View
@@ -100,7 +95,7 @@ const AuthIndex = () => {
       </View>
 
       {/* Logo animé */}
-      <View className="flex-1 justify-start items-center px-10 p-safe">
+      <View className="justify-start items-center px-10 p-safe pt-30">
         <Animated.View style={logoAnimatedStyle} className="items-center">
           <View className="relative">
             <Image
@@ -129,7 +124,7 @@ const AuthIndex = () => {
       {/* Carte du bas */}
       <Animated.View
         entering={FadeInDown.delay(400).springify().damping(18).stiffness(100)}
-        className="gap-5 p-8 pt-8 bg-card rounded-t-[32px] shadow-xl shadow-black/10 min-h-[330px]"
+        className="gap-5 p-8 pt-8     min-h-[330px]"
       >
         <Animated.View entering={FadeInUp.delay(500).duration(400)}>
           <Text className="text-2xl font-bold text-foreground">

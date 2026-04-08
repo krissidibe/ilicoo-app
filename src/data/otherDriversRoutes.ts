@@ -30,6 +30,8 @@ export type OtherDriverRoute = {
   vehicleType: "CAR" | "MOTORCYCLE";
   /** Distance du départ du chauffeur au point de départ recherché (km) */
   distanceFromSearchPickupKm?: number;
+  /** Distance de l’arrivée du trajet au point d’arrivée recherché (km) */
+  distanceFromSearchDropKm?: number;
 };
 
 export const otherDriversRoutes: OtherDriverRoute[] = [

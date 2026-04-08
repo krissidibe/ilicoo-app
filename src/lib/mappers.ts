@@ -268,6 +268,7 @@ export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { id: string; 
   color: COLORS[index % COLORS.length],
   vehicleType,
   distanceFromSearchPickupKm: r.searchPickupDistanceKm,
+  distanceFromSearchDropKm: r.searchDropDistanceKm,
 };};
 
 export const mapVehicleToUi = (v: VehicleApi) => ({

@@ -92,6 +92,8 @@ export type RouteApi = {
   passengers?: RoutePassengerApi[];
   /** Distance (km) du départ du trajet au point de départ de recherche — renseigné en mode search */
   searchPickupDistanceKm?: number;
+  /** Distance (km) de l’arrivée du trajet au point d’arrivée de recherche — renseigné en mode search */
+  searchDropDistanceKm?: number;
 };
 
 export type RoutePassengerApi = {

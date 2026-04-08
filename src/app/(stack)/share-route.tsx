@@ -7,13 +7,14 @@ import {
 } from "@/src/components/ui/card";
 import { Text } from "@/src/components/ui/text";
 import { cn, formatPriceDisplay, tripPriceForVehicle } from "@/src/lib/utils";
-import { createRoute } from "@/src/services/route.service";
 import { getPaymentsSummary } from "@/src/services/payment.service";
+import { createRoute } from "@/src/services/route.service";
 import { getVehicules } from "@/src/services/vehicle.service";
 import type { VehicleApi } from "@/src/types/api";
 import { calculateRouteWithGoogle } from "@/src/utils/routeGeometry";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
+  DateTimePickerAndroid,
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { useQuery } from "@tanstack/react-query";
@@ -153,11 +154,72 @@ const ShareRouteScreen = () => {
     string[] | null
   >(null);
 
-  const onPickerChange = React.useCallback(
-    (_e: DateTimePickerEvent, date?: Date) => {
-      if (date) setPickerTempValue(date);
+  const applyPickerValue = React.useCallback(
+    (value: Date, mode: "date" | "time"): boolean => {
+      if (mode === "date") {
+        setTripDateValue(value);
+        return true;
+      }
+
+      const combined = new Date(tripDateValue ?? new Date());
+      combined.setHours(value.getHours(), value.getMinutes(), 0, 0);
+      if (combined < new Date()) {
+        Alert.alert(
+          "Heure invalide",
+          "L'heure sélectionnée est déjà passée. Veuillez choisir une heure future.",
+        );
+        return false;
+      }
+      setTripTimeValue(value);
+      return true;
     },
-    [],
+    [tripDateValue],
+  );
+
+  const onPickerChange = React.useCallback(
+    (event: DateTimePickerEvent, selected?: Date) => {
+      if (!pickerMode) return;
+
+      if (event.type === "dismissed") {
+        if (Platform.OS === "android") setPickerMode(null);
+        return;
+      }
+
+      if (!selected) return;
+      setPickerTempValue(selected);
+
+      if (Platform.OS === "android" && event.type === "set") {
+        const isApplied = applyPickerValue(selected, pickerMode);
+        if (isApplied) setPickerMode(null);
+      }
+    },
+    [applyPickerValue, pickerMode],
+  );
+
+  const openPicker = React.useCallback(
+    (mode: "date" | "time") => {
+      const value =
+        mode === "date" ? (tripDateValue ?? new Date()) : (tripTimeValue ?? new Date());
+      setPickerTempValue(value);
+
+      if (Platform.OS === "android") {
+        DateTimePickerAndroid.open({
+          value,
+          mode,
+          is24Hour: true,
+          minimumDate: mode === "date" ? new Date() : undefined,
+          onChange: (event, selected) => {
+            if (event.type !== "set" || !selected) return;
+            setPickerTempValue(selected);
+            void applyPickerValue(selected, mode);
+          },
+        });
+        return;
+      }
+
+      setPickerMode(mode);
+    },
+    [applyPickerValue, tripDateValue, tripTimeValue],
   );
 
   const { data: vehicles = [] } = useQuery(getVehicules());
@@ -259,9 +321,9 @@ const ShareRouteScreen = () => {
     }
   };
 
-  const onMapPress = async (e: MapPressEvent) => {
+  const onCoordinatePress = async (coordinate: LatLng) => {
     if (!activeMapField) return;
-    const { latitude, longitude } = e.nativeEvent.coordinate;
+    const { latitude, longitude } = coordinate;
     const address = await getAddressFromCoordinates(latitude, longitude);
     const pt: RoutePoint = {
       latitude,
@@ -274,6 +336,10 @@ const ShareRouteScreen = () => {
       await calculateRoute(pt, arrival);
     if (activeMapField === "arrivee" && departure)
       await calculateRoute(departure, pt);
+  };
+
+  const onMapPress = async (e: MapPressEvent) => {
+    await onCoordinatePress(e.nativeEvent.coordinate);
   };
 
   const applyCurrentLocation = async () => {
@@ -558,6 +624,9 @@ const ShareRouteScreen = () => {
             style={{ flex: 1 }}
             initialRegion={defaultRegion}
             onPress={(e) => void onMapPress(e)}
+            onPoiClick={(e: { nativeEvent: { coordinate: LatLng } }) =>
+              void onCoordinatePress(e.nativeEvent.coordinate)
+            }
             showsUserLocation
             onUserLocationChange={(e) => {
               const c = e.nativeEvent.coordinate;
@@ -873,10 +942,7 @@ const ShareRouteScreen = () => {
               <CardContent className="gap-3">
                 <TouchableOpacity
                   className="flex-row justify-between items-center p-3 rounded-xl border border-gray"
-                  onPress={() => {
-                    setPickerTempValue(tripDateValue ?? new Date());
-                    setPickerMode("date");
-                  }}
+                  onPress={() => openPicker("date")}
                 >
                   <View className="flex-row gap-2 items-center">
                     <View className="p-2 rounded-full bg-primary/10">
@@ -896,10 +962,7 @@ const ShareRouteScreen = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="flex-row justify-between items-center p-3 rounded-xl border border-gray"
-                  onPress={() => {
-                    setPickerTempValue(tripTimeValue ?? new Date());
-                    setPickerMode("time");
-                  }}
+                  onPress={() => openPicker("time")}
                 >
                   <View className="flex-row gap-2 items-center">
                     <View className="p-2 rounded-full bg-primary/10">
@@ -1105,7 +1168,11 @@ const ShareRouteScreen = () => {
         </View>
       </Modal>
 
-      <Modal transparent visible={pickerMode !== null} animationType="fade">
+      <Modal
+        transparent
+        visible={Platform.OS === "ios" && pickerMode !== null}
+        animationType="fade"
+      >
         <View className="flex-1 justify-center items-center px-6 bg-black/40">
           <View className="p-4 w-full max-w-md bg-white rounded-2xl">
             <Text className="mb-2 text-base font-semibold text-center">
@@ -1130,26 +1197,14 @@ const ShareRouteScreen = () => {
               <Button
                 className="flex-1 rounded-xl"
                 onPress={() => {
-                  if (pickerMode === "date") {
-                    setTripDateValue(pickerTempValue);
-                    setPickerMode(null);
-                  } else if (pickerMode === "time") {
-                    const combined = new Date(tripDateValue ?? new Date());
-                    combined.setHours(
-                      pickerTempValue.getHours(),
-                      pickerTempValue.getMinutes(),
-                      0,
-                      0,
+                  if (pickerMode) {
+                    const isApplied = applyPickerValue(
+                      pickerTempValue,
+                      pickerMode,
                     );
-                    if (combined < new Date()) {
-                      Alert.alert(
-                        "Heure invalide",
-                        "L'heure sélectionnée est déjà passée. Veuillez choisir une heure future.",
-                      );
-                      return;
+                    if (isApplied) {
+                      setPickerMode(null);
                     }
-                    setTripTimeValue(pickerTempValue);
-                    setPickerMode(null);
                   }
                 }}
               >
