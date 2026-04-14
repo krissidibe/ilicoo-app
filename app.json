@@ -68,7 +68,9 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
         }
-      ]
+      ],
+      "expo-web-browser",
+      "expo-secure-store"
     ],
     "extra": {
       "googleMapsApiKey": "AIzaSyArA7IX33qpsbqwaHZZKN5ydttVJJ2-BRY"

@@ -15,14 +15,18 @@ import CountryCodeSheet, {
 import { countryCodes, type CountryCode } from "@/src/data/countryCodes";
 import { authClient } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
+import { updateProfile } from "@/src/services/user.service";
 import { useAuthStore } from "@/src/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Label } from "@react-navigation/elements";
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -32,11 +36,12 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { z } from "zod";
 
+WebBrowser.maybeCompleteAuthSession();
+
 const DEFAULT_OTP_CODE = "1234";
 const OTP_DURATION_SECONDS = 30;
 
-const signUpSchema = z.object({
-  email: z.email({ message: "Email invalide" }),
+const profileFieldsSchema = z.object({
   name: z.string().min(2, { message: "Le nom et prénom est requis" }).max(50, {
     message: "Le nom et prénom ne doit pas dépasser 50 caractères",
   }),
@@ -52,11 +57,16 @@ const signUpSchema = z.object({
   gender: z.enum(["male", "female"], {
     message: "Le genre est requis",
   }),
+});
+
+const signUpSchema = profileFieldsSchema.extend({
+  email: z.email({ message: "Email invalide" }),
   password: z
     .string()
     .min(6, { message: "Le mot de passe doit contenir au moins 6 caractères" }),
 });
 
+type ProfileFieldsData = z.infer<typeof profileFieldsSchema>;
 type SignUpSchema = z.infer<typeof signUpSchema>;
 type SignUpStep = "method" | "form" | "otp";
 type SignUpMethod = "google" | "apple" | "email";
@@ -73,9 +83,13 @@ const SignUp = () => {
   const [otpValue, setOtpValue] = useState<string>("");
   const [otpTimer, setOtpTimer] = useState<number>(OTP_DURATION_SECONDS);
   const [otpMessage, setOtpMessage] = useState<string>("");
+  const [socialError, setSocialError] = useState<string>("");
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [selectedCountry, setSelectedCountry] =
     useState<CountryCode>(defaultCountry);
-  const [submittedData, setSubmittedData] = useState<SignUpSchema | null>(null);
+  const [submittedData, setSubmittedData] = useState<
+    SignUpSchema | ProfileFieldsData | null
+  >(null);
 
   const {
     control,
@@ -116,15 +130,90 @@ const SignUp = () => {
     setStep("otp");
   };
 
-  const handleMethodSelection = (selectedMethod: SignUpMethod): void => {
-    setMethod(selectedMethod);
+  const handleMethodSelection = (
+    selectedMethod: Exclude<SignUpMethod, "google">,
+  ): void => {
+    setSocialError("");
     if (selectedMethod === "email") {
+      setMethod("email");
       setStep("form");
       return;
-    } else {
-      setValue("email", `test${Math.floor(Math.random() * 20) + 1}@test.com`);
-      setStep("form");
     }
+    if (selectedMethod === "apple") {
+      setMethod("apple");
+      setSocialError(
+        "Inscription Apple : configurez Sign in with Apple et le provider dans Better Auth.",
+      );
+      return;
+    }
+  };
+
+  const handleGoogleSignUp = async (): Promise<void> => {
+    setSocialError("");
+    setGoogleLoading(true);
+    try {
+      const response = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/(auth)/sign-up",
+      });
+      if (response.error) {
+        setSocialError(
+          response.error.message ?? "Erreur lors de l'inscription avec Google",
+        );
+        return;
+      }
+      const session = await authClient.getSession();
+      if (session.error || !session.data?.user) {
+        setSocialError("Connexion annulée ou session introuvable.");
+        return;
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      useAuthStore.getState().triggerAuthRefresh();
+      const user = session.data.user;
+      setMethod("google");
+      setValue("name", typeof user.name === "string" ? user.name : "", {
+        shouldDirty: true,
+      });
+      setValue("email", typeof user.email === "string" ? user.email : "");
+      setStep("form");
+    } catch (e) {
+      setSocialError(
+        e instanceof Error
+          ? e.message
+          : "Erreur inattendue lors de l'inscription.",
+      );
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const onGoogleProfileContinue = (): void => {
+    const raw = {
+      name: getValues("name"),
+      phoneDialCode: getValues("phoneDialCode"),
+      phoneNumber: getValues("phoneNumber"),
+      gender: getValues("gender"),
+    };
+    const parsed = profileFieldsSchema.safeParse(raw);
+    if (!parsed.success) {
+      void trigger(["name", "phoneNumber", "phoneDialCode", "gender"]);
+      return;
+    }
+    setSubmittedData(parsed.data);
+    setOtpMessage("");
+    setOtpValue("");
+    setOtpTimer(OTP_DURATION_SECONDS);
+    setStep("otp");
+  };
+
+  const handleChangeMethodFromForm = async (): Promise<void> => {
+    if (method === "google") {
+      await authClient.signOut();
+      useAuthStore.getState().triggerAuthRefresh();
+    }
+    setMethod(null);
+    setSubmittedData(null);
+    setStep("method");
   };
 
   const handleCountrySelect = (country: CountryCode): void => {
@@ -154,26 +243,58 @@ const SignUp = () => {
       setOtpMessage("Le code a expiré. Renvoyez un code OTP.");
       return;
     }
-    if (otpValue === DEFAULT_OTP_CODE) {
-      const response = await authClient.signUp.email({
-        email: getValues("email"),
-        name: getValues("name"),
-        phoneNumber: getValues("phoneNumber"),
-        phoneDialCode: getValues("phoneDialCode"),
-        gender: getValues("gender"),
-        country: selectedCountry.code,
-        password: getValues("password"),
-      });
-      if (response?.error) {
-        setOtpMessage(response.error.message ?? "Erreur lors de l'inscription");
-        return;
-      }
-      setOtpMessage("OTP validé avec succès.");
-      useAuthStore.getState().triggerAuthRefresh();
-      router.replace("/(tabs)" as any);
+    if (otpValue !== DEFAULT_OTP_CODE) {
+      setOtpMessage("Code OTP incorrect.");
       return;
     }
-    setOtpMessage("Code OTP incorrect.");
+
+    if (method === "google") {
+      const profile = submittedData as ProfileFieldsData | null;
+      if (!profile) {
+        setOtpMessage("Données manquantes. Recommencez l’étape précédente.");
+        return;
+      }
+      try {
+        await updateProfile({
+          name: profile.name,
+          phoneNumber: profile.phoneNumber,
+          phoneDialCode: profile.phoneDialCode,
+          country: selectedCountry.code,
+          gender: profile.gender,
+        });
+        setOtpMessage("OTP validé avec succès.");
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        useAuthStore.getState().triggerAuthRefresh();
+        router.replace("/(tabs)" as any);
+      } catch (e) {
+        setOtpMessage(
+          e instanceof Error ? e.message : "Erreur lors de l’enregistrement.",
+        );
+      }
+      return;
+    }
+
+    const data = submittedData as SignUpSchema | null;
+    if (!data) {
+      setOtpMessage("Données manquantes. Recommencez l’étape précédente.");
+      return;
+    }
+    const response = await authClient.signUp.email({
+      email: data.email,
+      name: data.name,
+      phoneNumber: data.phoneNumber,
+      phoneDialCode: data.phoneDialCode,
+      gender: data.gender,
+      country: selectedCountry.code,
+      password: data.password,
+    });
+    if (response?.error) {
+      setOtpMessage(response.error.message ?? "Erreur lors de l'inscription");
+      return;
+    }
+    setOtpMessage("OTP validé avec succès.");
+    useAuthStore.getState().triggerAuthRefresh();
+    router.replace("/(tabs)" as any);
   };
 
   return (
@@ -214,9 +335,14 @@ const SignUp = () => {
                 size="lg"
                 variant="outline"
                 className="justify-center mt-20 mb-3 w-full"
-                onPress={() => handleMethodSelection("google")}
+                disabled={googleLoading}
+                onPress={() => void handleGoogleSignUp()}
               >
-                <Ionicons name="logo-google" size={18} color="#EA4335" />
+                {googleLoading ? (
+                  <ActivityIndicator color="#EA4335" />
+                ) : (
+                  <Ionicons name="logo-google" size={18} color="#EA4335" />
+                )}
                 <Text className="text-base font-semibold">
                   Continuer avec Google
                 </Text>
@@ -225,6 +351,7 @@ const SignUp = () => {
                 size="lg"
                 variant="outline"
                 className="justify-center mb-3 w-full bg-black"
+                disabled={googleLoading}
                 onPress={() => handleMethodSelection("apple")}
               >
                 <Ionicons name="logo-apple" size={18} color="white" />
@@ -235,6 +362,7 @@ const SignUp = () => {
               <Button
                 size="lg"
                 className="justify-center mb-3 w-full"
+                disabled={googleLoading}
                 onPress={() => handleMethodSelection("email")}
               >
                 <Ionicons name="mail-outline" size={18} color="white" />
@@ -242,10 +370,8 @@ const SignUp = () => {
                   Continuer avec Email
                 </Text>
               </Button>
-              {otpMessage.length > 0 && method !== "email" && (
-                <Text className="text-sm text-muted-foreground">
-                  {otpMessage}
-                </Text>
+              {socialError.length > 0 && (
+                <Text className="text-sm text-red-500">{socialError}</Text>
               )}
             </Animated.View>
           )}
@@ -257,14 +383,16 @@ const SignUp = () => {
             >
               <View className="flex-row justify-between items-center mb-5">
                 <Text className="text-base font-semibold">
-                  Étape 2/2 : informations Email
+                  {method === "google"
+                    ? "Numéro WhatsApp et profil"
+                    : "Étape 2/2 : informations Email"}
                 </Text>
-                <TouchableOpacity onPress={() => setStep("method")}>
+                <TouchableOpacity onPress={() => void handleChangeMethodFromForm()}>
                   <Text className="text-sm text-primary">Changer de type</Text>
                 </TouchableOpacity>
               </View>
 
-              {method == "email" && (
+              {method === "email" && (
                 <View className="gap-2 items-start">
                   <Label className="text-base">Email</Label>
                   <Controller
@@ -430,12 +558,18 @@ const SignUp = () => {
               </View>
 
               <Button
-                onPress={handleSubmit(onSubmit)}
+                onPress={
+                  method === "google"
+                    ? () => onGoogleProfileContinue()
+                    : handleSubmit(onSubmit)
+                }
                 size="lg"
                 className="mt-6 w-full"
               >
                 <Text className="text-base font-bold text-primary-foreground">
-                  Créer un compte
+                  {method === "google"
+                    ? "Continuer vers la vérification OTP"
+                    : "Créer un compte"}
                 </Text>
               </Button>
             </Animated.View>
@@ -448,8 +582,9 @@ const SignUp = () => {
             >
               <Text className="text-base font-semibold">Vérification OTP</Text>
               <Text className="text-sm text-muted-foreground">
-                Un code OTP a été envoyé à {submittedData?.phoneDialCode}{" "}
-                {submittedData?.phoneNumber}.
+                {method === "google"
+                  ? "Entrez le code de vérification pour confirmer votre numéro (démo : 1234)."
+                  : `Un code OTP a été envoyé à ${submittedData?.phoneDialCode} ${submittedData?.phoneNumber}.`}
               </Text>
 
               <View className="gap-2 items-start">

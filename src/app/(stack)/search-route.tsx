@@ -8,7 +8,11 @@ import {
 import { Text } from "@/src/components/ui/text";
 import type { OtherDriverRoute } from "@/src/data/otherDriversRoutes";
 import { mapRouteToOtherDriverRoute } from "@/src/lib/mappers";
-import { cn, formatTripPriceForVehicle } from "@/src/lib/utils";
+import {
+  cn,
+  formatTripPriceForVehicle,
+  tripPriceForVehicle,
+} from "@/src/lib/utils";
 import { searchRoutes } from "@/src/services/route.service";
 import { requestRoute } from "@/src/services/routePassenger.service";
 import type { RouteApi } from "@/src/types/api";
@@ -53,6 +57,38 @@ type PointField = "depart" | "arrivee";
 type FormStep = 1 | 2 | 3;
 
 type VehicleFilterTab = "all" | "car" | "moto";
+
+/** Critères de tri (plusieurs possibles — appliqués dans l’ordre choisi). */
+type SortCriterion = "pickup" | "drop" | "time" | "price";
+
+const DEFAULT_SORT_CRITERIA: SortCriterion[] = ["pickup"];
+
+const SORT_OPTION_ROWS: {
+  id: SortCriterion;
+  labelFr: string;
+  hintFr: string;
+}[] = [
+  {
+    id: "pickup",
+    labelFr: "Proximité au départ",
+    hintFr: "D’abord les départs les plus proches de votre point de départ",
+  },
+  {
+    id: "drop",
+    labelFr: "Proximité à l’arrivée",
+    hintFr: "D’abord les arrivées les plus proches de votre point d’arrivée",
+  },
+  {
+    id: "time",
+    labelFr: "Heure de départ",
+    hintFr: "Du plus tôt au plus tard",
+  },
+  {
+    id: "price",
+    labelFr: "Prix",
+    hintFr: "Du moins cher au plus cher (selon vos places)",
+  },
+];
 
 type RoutePoint = {
   latitude: number;
@@ -140,6 +176,17 @@ const formatDate = (d: Date) =>
 const formatTime = (d: Date) =>
   d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
+/** Distance affichée pour départ / arrivée : sous 1 km → mètres (ex. 730 m), sinon km. */
+const formatProximityDistanceFromKm = (km: number): string => {
+  if (km < 1) {
+    return `${Math.round(km * 1000).toLocaleString("fr-FR")} m`;
+  }
+  return `${km.toLocaleString("fr-FR", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  })} km`;
+};
+
 const SearchRouteScreen = () => {
   const mapRef = React.useRef<MapView>(null);
   const [step, setStep] = React.useState<FormStep>(1);
@@ -175,6 +222,10 @@ const SearchRouteScreen = () => {
   );
   const [vehicleFilterTab, setVehicleFilterTab] =
     React.useState<VehicleFilterTab>("all");
+  const [sortCriteria, setSortCriteria] = React.useState<SortCriterion[]>(
+    DEFAULT_SORT_CRITERIA,
+  );
+  const [sortModalVisible, setSortModalVisible] = React.useState(false);
 
   const searchAtIso = React.useMemo(() => {
     if (!tripDateValue || !tripTimeValue) return null;
@@ -242,6 +293,54 @@ const SearchRouteScreen = () => {
     }
     return otherDriversRoutes.filter((d) => d.vehicleType === "MOTORCYCLE");
   }, [otherDriversRoutes, vehicleFilterTab]);
+
+  const routesById = useMemo(() => {
+    const m = new Map<string, RouteApi>();
+    for (const r of routesList) m.set(r.id, r);
+    return m;
+  }, [routesList]);
+
+  const sortedFilteredDriversRoutes = useMemo(() => {
+    if (sortCriteria.length === 0) return filteredDriversRoutes;
+    const orderedKeys = (["pickup", "drop", "time", "price"] as const).filter(
+      (c): c is SortCriterion => sortCriteria.includes(c),
+    );
+    const next = [...filteredDriversRoutes];
+    next.sort((a, b) => {
+      for (const c of orderedKeys) {
+        let cmp = 0;
+        if (c === "pickup") {
+          const da = a.distanceFromSearchPickupKm ?? Number.POSITIVE_INFINITY;
+          const db = b.distanceFromSearchPickupKm ?? Number.POSITIVE_INFINITY;
+          cmp = da - db;
+        } else if (c === "drop") {
+          const da = a.distanceFromSearchDropKm ?? Number.POSITIVE_INFINITY;
+          const db = b.distanceFromSearchDropKm ?? Number.POSITIVE_INFINITY;
+          cmp = da - db;
+        } else if (c === "time") {
+          const ta = routesById.get(a.id)?.departureAt;
+          const tb = routesById.get(b.id)?.departureAt;
+          const va = ta ? new Date(ta).getTime() : Number.POSITIVE_INFINITY;
+          const vb = tb ? new Date(tb).getTime() : Number.POSITIVE_INFINITY;
+          cmp = va - vb;
+        } else {
+          const pa = tripPriceForVehicle(a.distanceKm, seats, a.vehicleType);
+          const pb = tripPriceForVehicle(b.distanceKm, seats, b.vehicleType);
+          cmp = pa - pb;
+        }
+        if (cmp !== 0) return cmp;
+      }
+      return 0;
+    });
+    return next;
+  }, [filteredDriversRoutes, routesById, seats, sortCriteria]);
+
+  const toggleSortCriterion = React.useCallback((id: SortCriterion) => {
+    setSortCriteria((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      return [...prev, id];
+    });
+  }, []);
 
   React.useEffect(() => {
     if (
@@ -413,6 +512,7 @@ const SearchRouteScreen = () => {
     setShowMapResults(false);
     setSelectedDriverId(null);
     setVehicleFilterTab("all");
+    setSortCriteria(DEFAULT_SORT_CRITERIA);
   };
 
   const applyPickerValue = React.useCallback(
@@ -457,7 +557,9 @@ const SearchRouteScreen = () => {
   const openPicker = React.useCallback(
     (mode: "date" | "time") => {
       const value =
-        mode === "date" ? (tripDateValue ?? new Date()) : (tripTimeValue ?? new Date());
+        mode === "date"
+          ? (tripDateValue ?? new Date())
+          : (tripTimeValue ?? new Date());
       setPickerTempValue(value);
 
       if (Platform.OS === "android") {
@@ -486,7 +588,8 @@ const SearchRouteScreen = () => {
     activeMapField === "arrivee" && pendingPoint ? pendingPoint : arrival;
 
   const selectedDriver = selectedDriverId
-    ? (filteredDriversRoutes.find((d) => d.id === selectedDriverId) ?? null)
+    ? (sortedFilteredDriversRoutes.find((d) => d.id === selectedDriverId) ??
+      null)
     : null;
 
   const mapRegion = React.useMemo(() => {
@@ -505,7 +608,7 @@ const SearchRouteScreen = () => {
       lngs.push(selectedDriver.pickupLng, selectedDriver.dropLng);
     } else {
       /* Inclure les conducteurs filtrés quand aucun n'est sélectionné */
-      for (const d of filteredDriversRoutes) {
+      for (const d of sortedFilteredDriversRoutes) {
         lats.push(d.pickupLat, d.dropLat);
         lngs.push(d.pickupLng, d.dropLng);
       }
@@ -523,7 +626,7 @@ const SearchRouteScreen = () => {
         (Math.max(...lngs) - Math.min(...lngs)) * 1.6,
       ),
     };
-  }, [departure, arrival, selectedDriver, filteredDriversRoutes]);
+  }, [departure, arrival, selectedDriver, sortedFilteredDriversRoutes]);
 
   /** Toujours la dernière région calculée (pour éviter de dépendre de mapRegion dans les effets). */
   const mapRegionRef = React.useRef(mapRegion);
@@ -631,9 +734,6 @@ const SearchRouteScreen = () => {
               <Text className="text-lg font-bold text-center text-white">
                 Choisir un trajet
               </Text>
-              <Text className="mt-0.5 text-[11px] text-center text-white/80">
-                Trajets disponibles du plus proche au plus loin
-              </Text>
             </View>
             {selectedDriverId ? (
               <TouchableOpacity
@@ -713,7 +813,7 @@ const SearchRouteScreen = () => {
             )} */}
 
             {/* Conducteurs filtrés sur la carte */}
-            {filteredDriversRoutes.map((r) => {
+            {sortedFilteredDriversRoutes.map((r) => {
               const isSelected = r.id === selectedDriverId;
               return (
                 <React.Fragment key={r.id}>
@@ -869,17 +969,48 @@ const SearchRouteScreen = () => {
                   </TouchableOpacity>
                 ))}
               </View>
-              <TouchableOpacity
-                onPress={() => routesSheetRef.current?.snapToIndex(1)}
-                className="mb-4"
-              >
-                <Text className="text-base font-bold text-foreground">
-                  Choisir un trajet
-                </Text>
-                <Text className="text-xs text-muted-foreground mt-0.5">
-                  Glissez le panneau pour réduire ou agrandir
-                </Text>
-              </TouchableOpacity>
+              <View className="flex-row gap-2 justify-between items-start mb-4">
+                <TouchableOpacity
+                  className="flex-1"
+                  onPress={() => routesSheetRef.current?.snapToIndex(1)}
+                >
+                  <Text className="text-base font-bold text-foreground">
+                    Choisir un trajet
+                  </Text>
+                  <Text className="text-xs text-muted-foreground mt-0.5">
+                    Glissez le panneau pour réduire ou agrandir
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setSortModalVisible(true)}
+                  className={cn(
+                    "p-2.5 rounded-xl border",
+                    sortCriteria.length > 0 &&
+                      !(
+                        sortCriteria.length === 1 &&
+                        sortCriteria[0] === "pickup"
+                      )
+                      ? "border-primary bg-primary/10"
+                      : "border-slate-200 bg-white",
+                  )}
+                  accessibilityRole="button"
+                  accessibilityLabel="Trier les résultats"
+                >
+                  <Ionicons
+                    name="filter-outline"
+                    size={22}
+                    color={
+                      sortCriteria.length > 0 &&
+                      !(
+                        sortCriteria.length === 1 &&
+                        sortCriteria[0] === "pickup"
+                      )
+                        ? "#6366f1"
+                        : "#64748b"
+                    }
+                  />
+                </TouchableOpacity>
+              </View>
               {isError ? (
                 <View className="px-1 py-6">
                   <Text className="text-sm text-center text-red-600">
@@ -910,7 +1041,7 @@ const SearchRouteScreen = () => {
                 </Text>
               ) : (
                 <View className="flex-col gap-3">
-                  {filteredDriversRoutes.map((driver) => (
+                  {sortedFilteredDriversRoutes.map((driver) => (
                     <TouchableOpacity
                       key={driver.id}
                       onPress={() => setSelectedDriverId(driver.id)}
@@ -993,14 +1124,10 @@ const SearchRouteScreen = () => {
                           />
                           <Text className="text-xs font-medium text-indigo-700">
                             À{" "}
-                            {driver.distanceFromSearchPickupKm.toLocaleString(
-                              "fr-FR",
-                              {
-                                maximumFractionDigits: 2,
-                                minimumFractionDigits: 0,
-                              },
+                            {formatProximityDistanceFromKm(
+                              driver.distanceFromSearchPickupKm,
                             )}{" "}
-                            km de votre départ
+                            de votre départ
                           </Text>
                         </View>
                       ) : null}
@@ -1019,21 +1146,13 @@ const SearchRouteScreen = () => {
                       </View>
                       {driver.distanceFromSearchDropKm != null ? (
                         <View className="flex-row gap-2 items-center mb-2">
-                          <Ionicons
-                            name="flag"
-                            size={14}
-                            color="#be185d"
-                          />
+                          <Ionicons name="flag" size={14} color="#be185d" />
                           <Text className="text-xs font-medium text-rose-800">
                             À{" "}
-                            {driver.distanceFromSearchDropKm.toLocaleString(
-                              "fr-FR",
-                              {
-                                maximumFractionDigits: 2,
-                                minimumFractionDigits: 0,
-                              },
+                            {formatProximityDistanceFromKm(
+                              driver.distanceFromSearchDropKm,
                             )}{" "}
-                            km de votre arrivée
+                            de votre arrivée
                           </Text>
                         </View>
                       ) : null}
@@ -1102,6 +1221,84 @@ const SearchRouteScreen = () => {
             </BottomSheetScrollView>
           </BottomSheet>
         </View>
+
+        <Modal
+          transparent
+          animationType="fade"
+          visible={sortModalVisible}
+          onRequestClose={() => setSortModalVisible(false)}
+        >
+          <View className="flex-1 justify-end bg-black/45">
+            <TouchableOpacity
+              className="flex-1"
+              activeOpacity={1}
+              onPress={() => setSortModalVisible(false)}
+            />
+            <View className="px-4 pt-3 pb-safe bg-white rounded-t-3xl border-t border-slate-200 max-h-[78%]">
+              <Text className="text-lg font-bold text-foreground">
+                Trier les résultats
+              </Text>
+              <Text className="mt-1 mb-3 text-xs text-muted-foreground">
+                Cochez un ou plusieurs critères
+              </Text>
+              <ScrollView
+                className="max-h-80"
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                {SORT_OPTION_ROWS.map((row) => {
+                  const active = sortCriteria.includes(row.id);
+                  return (
+                    <TouchableOpacity
+                      key={row.id}
+                      className={cn(
+                        "flex-row gap-3 items-start py-3 border-b border-slate-100",
+                      )}
+                      onPress={() => toggleSortCriterion(row.id)}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons
+                        name={active ? "checkbox" : "square-outline"}
+                        size={24}
+                        color={active ? "#6366f1" : "#94a3b8"}
+                      />
+                      <View className="flex-1">
+                        <Text
+                          className={cn(
+                            "text-sm font-semibold",
+                            active ? "text-primary" : "text-foreground",
+                          )}
+                        >
+                          {row.labelFr}
+                        </Text>
+                        <Text className="mt-0.5 text-xs text-muted-foreground">
+                          {row.hintFr}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <View className="flex-row gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-xl"
+                  onPress={() => {
+                    setSortCriteria(DEFAULT_SORT_CRITERIA);
+                  }}
+                >
+                  <Text>Réinitialiser</Text>
+                </Button>
+                <Button
+                  className="flex-1 rounded-xl"
+                  onPress={() => setSortModalVisible(false)}
+                >
+                  <Text>OK</Text>
+                </Button>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }

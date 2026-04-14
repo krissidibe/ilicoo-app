@@ -20,6 +20,11 @@ export const getApiBaseUrl = (): string => {
     return envBaseUrl.replace(/\/$/, "");
   }
 
+  const authOnly = process.env.EXPO_PUBLIC_BETTER_AUTH_URL?.trim();
+  if (authOnly) {
+    return authOnly.replace(/\/$/, "");
+  }
+
   const devHost = extractDevHost();
   if (devHost) {
     return `http://${devHost}:${LOCAL_API_PORT}`;
@@ -30,6 +35,19 @@ export const getApiBaseUrl = (): string => {
   }
 
   return "http://localhost:3000";
+};
+
+/**
+ * Better Auth `baseURL` (same origin as `BETTER_AUTH_URL` on the server).
+ * Prefer `EXPO_PUBLIC_BETTER_AUTH_URL` so it always matches the Next app URL
+ * (avoids localhost vs LAN IP mismatches for OAuth redirects).
+ */
+export const getAuthServerBaseUrl = (): string => {
+  const explicit = process.env.EXPO_PUBLIC_BETTER_AUTH_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/$/, "");
+  }
+  return getApiBaseUrl();
 };
 
 export const getApiV1BaseUrl = (): string => `${getApiBaseUrl()}${API_PREFIX}`;

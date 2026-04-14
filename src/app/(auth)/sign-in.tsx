@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Label } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -21,7 +22,7 @@ import {
   View,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-
+WebBrowser.maybeCompleteAuthSession();
 type SignInMethod = "google" | "apple" | "email" | "phone";
 type PhoneStep = "input" | "otp";
 
@@ -46,7 +47,7 @@ const SignIn = () => {
   const [otpValue, setOtpValue] = useState<string>("");
   const [otpTimer, setOtpTimer] = useState<number>(OTP_DURATION_SECONDS);
   const [otpMessage, setOtpMessage] = useState<string>("");
-
+  const [socialError, setSocialError] = useState<string>("");
   const isSocialMethod = method === "google" || method === "apple";
   const methodTitle =
     method === "google"
@@ -100,6 +101,42 @@ const SignIn = () => {
     setOtpValue("");
     setOtpTimer(OTP_DURATION_SECONDS);
     setOtpMessage("Un nouveau code OTP a été renvoyé.");
+  };
+
+  const handleSocialSignIn = async (): Promise<void> => {
+    if (method === "apple") {
+      setSocialError(
+        "Connexion Apple : configurez Sign in with Apple et le provider dans Better Auth.",
+      );
+      return;
+    }
+    setSocialError("");
+    try {
+      const response = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/(tabs)",
+      });
+      if (response.error) {
+        setSocialError(
+          response.error.message ?? "Erreur lors de la connexion Google",
+        );
+        return;
+      }
+      const session = await authClient.getSession();
+      if (session.error || !session.data?.user) {
+        setSocialError("Connexion annulée ou session introuvable.");
+        return;
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      useAuthStore.getState().triggerAuthRefresh();
+      router.replace("/(tabs)" as any);
+    } catch (e) {
+      setSocialError(
+        e instanceof Error
+          ? e.message
+          : "Erreur inattendue lors de la connexion.",
+      );
+    }
   };
 
   return (
@@ -187,7 +224,9 @@ const SignIn = () => {
                     password: password,
                   });
                   if (response?.error) {
-                    setOtpMessage(response.error.message ?? "Erreur de connexion");
+                    setOtpMessage(
+                      response.error.message ?? "Erreur de connexion",
+                    );
                     return;
                   }
                   setOtpMessage("");
@@ -341,8 +380,12 @@ const SignIn = () => {
                 Vous avez choisi {methodTitle}. Appuyez sur le bouton ci-dessous
                 pour continuer l&apos;authentification.
               </Text>
+              {socialError.length > 0 && (
+                <Text className="text-sm text-red-500">{socialError}</Text>
+              )}
               <Button
                 size="lg"
+                onPress={handleSocialSignIn}
                 variant={method === "apple" ? "outline" : "default"}
                 className={cn(
                   "w-full",
