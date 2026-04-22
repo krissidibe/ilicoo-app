@@ -6,6 +6,7 @@ import {
   CardTitle,
 } from "@/src/components/ui/card";
 import { Text } from "@/src/components/ui/text";
+import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { OtherDriverRoute } from "@/src/data/otherDriversRoutes";
 import { mapRouteToOtherDriverRoute } from "@/src/lib/mappers";
 import {
@@ -31,6 +32,7 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { useQuery } from "@tanstack/react-query";
 import Constants from "expo-constants";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useCallback, useMemo } from "react";
 import {
@@ -1053,36 +1055,50 @@ const SearchRouteScreen = () => {
                       )}
                     >
                       <View className="flex-row items-center mb-2">
-                        <View
-                          className="p-2 rounded-full"
-                          style={{ backgroundColor: `${driver.color}20` }}
-                        >
-                          {driver.vehicleType === "MOTORCYCLE" ? (
-                            <MaterialCommunityIcons
-                              name="motorbike"
-                              size={18}
-                              color={driver.color}
-                            />
-                          ) : (
-                            <Ionicons
-                              name="car-sport"
-                              size={18}
-                              color={driver.color}
-                            />
-                          )}
-                        </View>
+                        {driver.vehiclePhotoUrl ? (
+                          <Image
+                            source={{ uri: driver.vehiclePhotoUrl }}
+                            className="rounded-xl overflow-hidden"
+                            style={{ width: 44, height: 44 }}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View
+                            className="p-2 rounded-full"
+                            style={{ backgroundColor: `${driver.color}20` }}
+                          >
+                            {driver.vehicleType === "MOTORCYCLE" ? (
+                              <MaterialCommunityIcons
+                                name="motorbike"
+                                size={18}
+                                color={driver.color}
+                              />
+                            ) : (
+                              <Ionicons
+                                name="car-sport"
+                                size={18}
+                                color={driver.color}
+                              />
+                            )}
+                          </View>
+                        )}
 
-                        <Text
-                          className={cn(
-                            "ml-2 flex-1 font-semibold text-base",
-                            selectedDriverId === driver.id
-                              ? "text-primary"
-                              : "text-foreground",
-                          )}
-                          numberOfLines={1}
-                        >
-                          {driver.driverName}
-                        </Text>
+                        <View className="flex-1 flex-row items-center gap-1 ml-2 min-w-0">
+                          <Text
+                            className={cn(
+                              "font-semibold text-base shrink",
+                              selectedDriverId === driver.id
+                                ? "text-primary"
+                                : "text-foreground",
+                            )}
+                            numberOfLines={1}
+                          >
+                            {driver.driverName}
+                          </Text>
+                          {driver.driverIsVerified ? (
+                            <VerifiedBadge size={16} className="shrink-0" />
+                          ) : null}
+                        </View>
                         <TouchableOpacity
                           className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/15"
                           onPress={(e) => {

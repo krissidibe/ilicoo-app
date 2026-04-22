@@ -1,4 +1,5 @@
 import { RoutePolyline } from "@/src/components/Map/RoutePolyline";
+import { AvatarWithVerifiedOutline } from "@/src/components/VerifiedBadge";
 import {
   Avatar,
   AvatarFallback,
@@ -264,12 +265,14 @@ export function useTripMapSheets(handlers: TripMapSheetHandlers) {
               key={p.id}
               className="flex-row items-center mr-3 p-3 rounded-xl border border-gray-200 bg-gray-50 min-w-[140px]"
             >
-              <Avatar className="size-8" alt={p.name}>
-                <AvatarImage source={{ uri: p.image }} />
-                <AvatarFallback>
-                  <Text className="text-[10px]">{p.name[0]}</Text>
-                </AvatarFallback>
-              </Avatar>
+              <AvatarWithVerifiedOutline isVerified={p.isVerified} badgeSize={10}>
+                <Avatar className="size-8" alt={p.name}>
+                  <AvatarImage source={{ uri: p.image }} />
+                  <AvatarFallback>
+                    <Text className="text-[10px]">{p.name[0]}</Text>
+                  </AvatarFallback>
+                </Avatar>
+              </AvatarWithVerifiedOutline>
               <View className="flex-1 ml-2">
                 <Text className="text-xs font-semibold" numberOfLines={1}>
                   {p.name}

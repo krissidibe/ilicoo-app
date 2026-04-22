@@ -20,6 +20,8 @@ export type UserApi = {
   phoneDialCode: string;
   country: string;
   gender: string;
+  /** Compte vérifié (admin) */
+  isVerified?: boolean;
   permitNumber?: string | null;
   permitPhoto?: string | null;
   permitPhotoBack?: string | null;
@@ -37,10 +39,8 @@ export type VehicleApi = {
   year: string | null;
   plateNumber: string | null;
   color: string | null;
-  permitNumber: string | null;
-  permitPhoto: string | null;
-  permitPhotoBack: string | null;
-  identityPhoto: string | null;
+  /** URL publique, optionnelle */
+  photo: string | null;
   default: boolean;
   createdAt: string;
   updatedAt: string;
@@ -71,6 +71,7 @@ export type RouteApi = {
     id: string;
     type: VehicleTypeApi;
     name: string;
+    photo?: string | null;
   } | null;
   pickupLat: number;
   pickupLng: number;

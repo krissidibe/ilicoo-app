@@ -5,6 +5,7 @@ export type DriverInfo = {
   name: string;
   phone: string;
   rating: number;
+  isVerified?: boolean;
 };
 
 export type PassengerStatusUi = "En attente" | "Confirmé" | "Refusé" | "Annulé" | "Terminé";

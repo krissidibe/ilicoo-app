@@ -15,6 +15,7 @@ export type PassengerRequest = {
   userId?: string;
   name: string;
   image?: string;
+  isVerified?: boolean;
   phone?: string;
   rating: number;
   status: PassengerRequestStatus;

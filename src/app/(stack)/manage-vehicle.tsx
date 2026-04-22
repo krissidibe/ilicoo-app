@@ -3,14 +3,25 @@ import { Input } from "@/src/components/ui/input";
 import { Text } from "@/src/components/ui/text";
 import { cn } from "@/src/lib/utils";
 import { queryKeys } from "@/src/services/queryKeys";
+import { uploadImageFile } from "@/src/services/upload.service";
 import { createVehicle } from "@/src/services/vehicle.service";
 import { getUser } from "@/src/services/user.service";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Modal, ScrollView, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 type VehicleType = "voiture" | "moto";
@@ -63,6 +74,42 @@ const ManageVehicleScreen = () => {
     React.useState<number>(0);
   const [yearSheetOpen, setYearSheetOpen] = React.useState(false);
   const [colorSheetOpen, setColorSheetOpen] = React.useState(false);
+  const [vehiclePhotoUri, setVehiclePhotoUri] = React.useState<string | null>(null);
+  const [isSending, setIsSending] = React.useState(false);
+
+  const openVehiclePhotoLibrary = React.useCallback(async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          "Permission requise",
+          "Autorisez l'accès à la photothèque pour ajouter une photo du véhicule.",
+        );
+        return;
+      }
+      if (Platform.OS === "android") {
+        await new Promise<void>((r) => setTimeout(r, 50));
+      }
+      // Ne pas activer le recadrage : allowsEditing lance l’UI native de crop (ex. UCrop) qui fait
+      // souvent crasher l’app sur Android (new arch / edge-to-edge) ou sur certains appareils.
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: false,
+        quality: 0.85,
+      });
+      if (!res.canceled && res.assets?.[0]?.uri) {
+        setVehiclePhotoUri(res.assets[0].uri);
+      }
+    } catch (e) {
+      console.error("expo-image-picker", e);
+      Alert.alert(
+        "Galerie",
+        e instanceof Error
+          ? e.message
+          : "Impossible d'ouvrir la photothèque. Réessayez ou redémarrez l'app après une mise à jour (dev client / build).",
+      );
+    }
+  }, []);
 
   const {
     control,
@@ -193,20 +240,35 @@ const ManageVehicleScreen = () => {
     },
   });
 
-  const onSubmit = handleSubmit((values) => {
-    createMutation.mutate({
-      type: values.vehicleType as "voiture" | "moto",
-      vehicleName: values.vehicleName,
-      year: isMoto ? undefined : values.year,
-      plateNumber: isMoto ? undefined : values.plateNumber,
-      color: values.color || undefined,
-      permitNumber: values.licenseNumber || undefined,
-      permitPhoto: values.licensePhoto || undefined,
-      permitPhotoBack: values.permitPhotoBack || undefined,
-      identityPhoto: values.identityPhoto || undefined,
-      maximumPassenger: values.maximumPassenger,
-      default: false,
-    });
+  const onSubmit = handleSubmit(async (values) => {
+    setIsSending(true);
+    try {
+      let photo: string | undefined;
+      if (vehiclePhotoUri) {
+        photo = await uploadImageFile(vehiclePhotoUri);
+      }
+      await createMutation.mutateAsync({
+        type: values.vehicleType as "voiture" | "moto",
+        vehicleName: values.vehicleName,
+        year: isMoto ? undefined : values.year,
+        plateNumber: isMoto ? undefined : values.plateNumber,
+        color: values.color || undefined,
+        photo,
+        permitNumber: values.licenseNumber || undefined,
+        permitPhoto: values.licensePhoto || undefined,
+        permitPhotoBack: values.permitPhotoBack || undefined,
+        identityPhoto: values.identityPhoto || undefined,
+        maximumPassenger: values.maximumPassenger,
+        default: false,
+      });
+    } catch (e) {
+      Alert.alert(
+        "Erreur",
+        e instanceof Error ? e.message : "Impossible d’enregistrer le véhicule",
+      );
+    } finally {
+      setIsSending(false);
+    }
   });
 
   return (
@@ -551,6 +613,46 @@ const ManageVehicleScreen = () => {
               </View>
             </Modal>
 
+            <View>
+              <Text className="mb-1 text-xs text-muted-foreground">
+                Photo du véhicule (optionnel)
+              </Text>
+              <Text className="mb-2 text-xs opacity-80 text-muted-foreground">
+                Les passagers pourront reconnaître plus facilement votre voiture.
+              </Text>
+              {vehiclePhotoUri ? (
+                <View className="items-center">
+                  <Image
+                    source={{ uri: vehiclePhotoUri }}
+                    className="w-full rounded-2xl"
+                    style={{ height: 180 }}
+                    contentFit="cover"
+                  />
+                  <TouchableOpacity
+                    className="mt-2"
+                    onPress={() => setVehiclePhotoUri(null)}
+                  >
+                    <Text className="text-sm text-red-500">Retirer la photo</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-primary/40 bg-white"
+                  onPress={() => {
+                    void openVehiclePhotoLibrary();
+                  }}
+                >
+                  <Ionicons name="camera-outline" size={22} color="#6366f1" />
+                  <Text className="flex-1 ml-2 text-sm text-foreground">
+                    Choisir une photo
+                  </Text>
+                  <Text className="text-xs font-semibold text-primary">
+                    Galerie
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
             {isMoto ? (
               <Controller
                 control={control}
@@ -758,8 +860,16 @@ const ManageVehicleScreen = () => {
               <Text>Continuer</Text>
             </Button>
           ) : (
-            <Button className="flex-1 rounded-xl" onPress={onSubmit}>
-              <Text>Ajouter le véhicule</Text>
+            <Button
+              className="flex-1 rounded-xl"
+              onPress={onSubmit}
+              disabled={isSending || createMutation.isPending}
+            >
+              {isSending || createMutation.isPending ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text>Ajouter le véhicule</Text>
+              )}
             </Button>
           )}
         </View>

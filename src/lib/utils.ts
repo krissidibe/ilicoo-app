@@ -54,6 +54,28 @@ export function tripPriceForVehicle(
   return carTrip;
 }
 
+/** Taux commission Ilicoo — `ilicoo-web/src/lib/pricing.ts` (ILICO_COMMISSION_RATE) */
+const ILICO_COMMISSION_RATE = 0.17;
+
+function roundToNearest5(value: number): number {
+  return Math.round(value / 5) * 5;
+}
+
+/**
+ * Répartition indicative (commission Ilicoo / part conducteur) pour le prix d’une place
+ * affiché — même logique que `calculateTripPrice` côté backend (commission arrondie au 5 FCFA).
+ */
+export function getTripPriceCommissionSplit(tripPrice: number): {
+  total: number;
+  ilicoPart: number;
+  driverPart: number;
+} {
+  const total = roundUpToNearest10(tripPrice);
+  const ilicoPart = roundToNearest5(total * ILICO_COMMISSION_RATE);
+  const driverPart = total - ilicoPart;
+  return { total, ilicoPart, driverPart };
+}
+
 export function formatTripPriceForVehicle(
   distanceKm: number,
   passengers: number,

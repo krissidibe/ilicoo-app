@@ -28,6 +28,10 @@ export type OtherDriverRoute = {
   color: string; // for map polyline/marker
   /** Type du véhicule par défaut du conducteur */
   vehicleType: "CAR" | "MOTORCYCLE";
+  /** Photo du véhicule (recherche / reconnaissance) */
+  vehiclePhotoUrl?: string | null;
+  /** Chauffeur vérifié */
+  driverIsVerified?: boolean;
   /** Distance du départ du chauffeur au point de départ recherché (km) */
   distanceFromSearchPickupKm?: number;
   /** Distance de l’arrivée du trajet au point d’arrivée recherché (km) */

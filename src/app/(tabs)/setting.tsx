@@ -6,6 +6,7 @@ import {
 } from "@/src/components/ui/avatar";
 import { Text } from "@/src/components/ui/text";
 import { authClient } from "@/src/lib/auth-client";
+import { AvatarWithVerifiedOutline } from "@/src/components/VerifiedBadge";
 import { getUserRatings } from "@/src/services/rating.service";
 import { getUser } from "@/src/services/user.service";
 import { useAuthStore } from "@/src/store/auth.store";
@@ -101,17 +102,24 @@ const Setting = () => {
                 <View className="absolute -left-4 -bottom-6 bg-white rounded-full opacity-10 size-24" />
                 <View className="flex-row items-center">
                   <View className="shadow-black/25">
-                    <Avatar
-                      className="rounded-3xl size-18"
-                      alt={user?.name ?? "User"}
+                    <AvatarWithVerifiedOutline
+                      isVerified={Boolean(user?.isVerified)}
+                      badgeSize={16}
                     >
-                      <AvatarImage source={{ uri: user?.image ?? undefined }} />
-                      <AvatarFallback>
-                        <Text className="text-2xl font-bold text-primary">
-                          {user?.name?.slice(0, 2).toUpperCase() ?? "U"}
-                        </Text>
-                      </AvatarFallback>
-                    </Avatar>
+                      <Avatar
+                        className="rounded-3xl size-18"
+                        alt={user?.name ?? "User"}
+                      >
+                        <AvatarImage
+                          source={{ uri: user?.image ?? undefined }}
+                        />
+                        <AvatarFallback>
+                          <Text className="text-2xl font-bold text-primary">
+                            {user?.name?.slice(0, 2).toUpperCase() ?? "U"}
+                          </Text>
+                        </AvatarFallback>
+                      </Avatar>
+                    </AvatarWithVerifiedOutline>
                   </View>
                   <View className="flex-1 pl-4 min-w-0">
                     <Text

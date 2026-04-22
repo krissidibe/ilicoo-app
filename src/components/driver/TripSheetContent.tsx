@@ -5,6 +5,7 @@ import {
 } from "@/src/components/ui/avatar";
 import { Button } from "@/src/components/ui/button";
 import { Text } from "@/src/components/ui/text";
+import { AvatarWithVerifiedOutline } from "@/src/components/VerifiedBadge";
 import type {
   MyPublishedTrip,
   PassengerRequest,
@@ -136,20 +137,22 @@ export const TripSheetContent = ({
         )}
       >
         <View className="flex-row flex-1 items-center">
-          <Avatar
-            className={cn(isOnBoard ? "size-8" : "size-10")}
-            alt={p.name}
-          >
-            <AvatarImage source={{ uri: p.image }} />
-            <AvatarFallback>
-              <Text className={cn(isOnBoard ? "text-[10px]" : "text-xs")}>
-                {p.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </Text>
-            </AvatarFallback>
-          </Avatar>
+          <AvatarWithVerifiedOutline isVerified={p.isVerified} badgeSize={12}>
+            <Avatar
+              className={cn(isOnBoard ? "size-8" : "size-10")}
+              alt={p.name}
+            >
+              <AvatarImage source={{ uri: p.image }} />
+              <AvatarFallback>
+                <Text className={cn(isOnBoard ? "text-[10px]" : "text-xs")}>
+                  {p.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </Text>
+              </AvatarFallback>
+            </Avatar>
+          </AvatarWithVerifiedOutline>
           <View className="flex-1 ml-3">
             <Text className="text-sm font-semibold">{p.name}</Text>
             <Text className="text-xs text-muted-foreground">

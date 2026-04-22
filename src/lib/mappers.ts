@@ -122,6 +122,7 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
             name: driver.name,
             phone: `${driver.phoneDialCode}${driver.phoneNumber}`,
             rating: computeAverageRating(driver.ratingsReceived),
+            isVerified: Boolean(driver.isVerified),
           }
         : undefined,
     pickupLat: route?.pickupLat,
@@ -179,6 +180,7 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
       userId: p.userId,
       name: p.user?.name ?? "Passager",
       image: p.user?.image ?? undefined,
+      isVerified: Boolean(p.user?.isVerified),
       phone: p.user ? `${p.user.phoneDialCode}${p.user.phoneNumber}` : undefined,
       rating: computeAverageRating(p.user?.ratingsReceived),
       status: PASSENGER_STATUS_UI[p.status] ?? "PENDING",
@@ -230,7 +232,7 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
   };
 };
 
-export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { id: string; name: string; image?: string | null; ratingsReceived?: { stars: number }[]; vehicles?: { type: string; default: boolean }[] }; passengers?: { seats: number }[] }, index: number): OtherDriverRoute => {
+export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { id: string; name: string; image?: string | null; isVerified?: boolean; ratingsReceived?: { stars: number }[]; vehicles?: { type: string; default: boolean }[] }; passengers?: { seats: number }[] }, index: number): OtherDriverRoute => {
   const reservedSeats = (r.passengers ?? []).reduce((sum, p) => sum + p.seats, 0);
   const defaultVehicle =
     r.user?.vehicles?.find((v) => v.default) ?? r.user?.vehicles?.[0];
@@ -267,6 +269,8 @@ export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { id: string; 
   ],
   color: COLORS[index % COLORS.length],
   vehicleType,
+  vehiclePhotoUrl: r.vehicle?.photo ?? null,
+  driverIsVerified: Boolean(r.user?.isVerified),
   distanceFromSearchPickupKm: r.searchPickupDistanceKm,
   distanceFromSearchDropKm: r.searchDropDistanceKm,
 };};

@@ -1,4 +1,5 @@
 import { RoutePolyline } from "@/src/components/Map/RoutePolyline";
+import { AvatarWithVerifiedOutline } from "@/src/components/VerifiedBadge";
 import {
   Avatar,
   AvatarFallback,
@@ -392,12 +393,17 @@ const ActiveTripScreen = () => {
       {selectedPassenger && (
         <View className="absolute right-4 left-4 bottom-48 p-4 bg-white rounded-2xl border border-gray-200 shadow-lg">
           <View className="flex-row items-center">
-            <Avatar className="size-12" alt={selectedPassenger.name}>
-              <AvatarImage source={{ uri: selectedPassenger.image }} />
-              <AvatarFallback>
-                <Text className="text-sm">{selectedPassenger.name[0]}</Text>
-              </AvatarFallback>
-            </Avatar>
+            <AvatarWithVerifiedOutline
+              isVerified={selectedPassenger.isVerified}
+              badgeSize={14}
+            >
+              <Avatar className="size-12" alt={selectedPassenger.name}>
+                <AvatarImage source={{ uri: selectedPassenger.image }} />
+                <AvatarFallback>
+                  <Text className="text-sm">{selectedPassenger.name[0]}</Text>
+                </AvatarFallback>
+              </Avatar>
+            </AvatarWithVerifiedOutline>
             <View className="flex-1 ml-3">
               <Text className="text-sm font-bold">
                 {selectedPassenger.name}
@@ -453,12 +459,14 @@ const ActiveTripScreen = () => {
                   : "border-gray-200 bg-gray-50"
               }`}
             >
-              <Avatar className="size-9" alt={p.name}>
-                <AvatarImage source={{ uri: p.image }} />
-                <AvatarFallback>
-                  <Text className="text-[10px]">{p.name[0]}</Text>
-                </AvatarFallback>
-              </Avatar>
+              <AvatarWithVerifiedOutline isVerified={p.isVerified} badgeSize={11}>
+                <Avatar className="size-9" alt={p.name}>
+                  <AvatarImage source={{ uri: p.image }} />
+                  <AvatarFallback>
+                    <Text className="text-[10px]">{p.name[0]}</Text>
+                  </AvatarFallback>
+                </Avatar>
+              </AvatarWithVerifiedOutline>
               <View className="flex-1 ml-2">
                 <Text className="text-xs font-semibold" numberOfLines={1}>
                   {p.name}

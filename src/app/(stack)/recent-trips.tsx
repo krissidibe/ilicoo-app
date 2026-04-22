@@ -1,6 +1,7 @@
 import { RouteMapView } from "@/src/components/Map/RouteMapView";
 import StarRating from "@/src/components/StarRating";
 import { Text } from "@/src/components/ui/text";
+import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
@@ -355,9 +356,18 @@ const RecentTripsScreen = () => {
                       } as any)
                     }
                   >
-                    <Text className="text-sm font-semibold text-foreground">
-                      {trip.driver.name} - {trip.driver.rating}★
-                    </Text>
+                    <View className="flex-row items-center gap-1">
+                      <Text className="text-sm font-semibold text-foreground">
+                        {trip.driver.name}
+                      </Text>
+                      {trip.driver.isVerified ? (
+                        <VerifiedBadge size={16} className="shrink-0" />
+                      ) : null}
+                      <Text className="text-sm font-semibold text-foreground">
+                        {" "}
+                        - {trip.driver.rating}★
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>

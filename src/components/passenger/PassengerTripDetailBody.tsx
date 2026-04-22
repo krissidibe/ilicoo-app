@@ -1,5 +1,6 @@
 import { RouteMapView } from "@/src/components/Map/RouteMapView";
 import { Text } from "@/src/components/ui/text";
+import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { RecentTrip } from "@/src/data/recentTrips";
 import { cn } from "@/src/lib/utils";
 import { queryKeys } from "@/src/services/queryKeys";
@@ -167,9 +168,18 @@ export const PassengerTripDetailBody = ({ trip }: Props) => {
                   <Text className="text-xs text-muted-foreground">
                     Chauffeur
                   </Text>
-                  <Text className="text-sm font-semibold text-foreground">
-                    {trip.driver.name} - {trip.driver.rating}★
-                  </Text>
+                  <View className="flex-row items-center gap-1 flex-wrap">
+                    <Text className="text-sm font-semibold text-foreground">
+                      {trip.driver.name}
+                    </Text>
+                    {trip.driver.isVerified ? (
+                      <VerifiedBadge size={15} className="shrink-0" />
+                    ) : null}
+                    <Text className="text-sm font-semibold text-foreground">
+                      {" "}
+                      - {trip.driver.rating}★
+                    </Text>
+                  </View>
                 </View>
               </View>
               <TouchableOpacity

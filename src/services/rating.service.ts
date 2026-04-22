@@ -10,11 +10,23 @@ type RatingApi = {
   stars: number;
   comment?: string | null;
   createdAt: string;
-  fromUser?: { id: string; name: string; image: string | null };
+  fromUser?: {
+    id: string;
+    name: string;
+    image: string | null;
+    isVerified?: boolean;
+  };
 };
 
 type RatingResponse = {
   ratings: RatingApi[];
+  /** Profil de l’utilisateur dont on consulte les avis */
+  profileUser?: {
+    id: string;
+    name: string;
+    image: string | null;
+    isVerified: boolean;
+  } | null;
   averageRating: number;
   totalRatings: number;
   page: number;

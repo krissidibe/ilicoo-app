@@ -1,6 +1,7 @@
 import { CommissionPendingModal } from "@/src/components/CommissionPendingModal";
 import { RouteMapView } from "@/src/components/Map/RouteMapView";
 import StarRating from "@/src/components/StarRating";
+import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
@@ -424,9 +425,18 @@ const HomeScreen = () => {
                       } as any)
                     }
                   >
-                    <Text className="text-sm font-semibold text-foreground">
-                      {trip.driver.name} - {trip.driver.rating}★
-                    </Text>
+                    <View className="flex-row items-center gap-1">
+                      <Text className="text-sm font-semibold text-foreground">
+                        {trip.driver.name}
+                      </Text>
+                      {trip.driver.isVerified ? (
+                        <VerifiedBadge size={16} className="shrink-0" />
+                      ) : null}
+                      <Text className="text-sm font-semibold text-foreground">
+                        {" "}
+                        - {trip.driver.rating}★
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -711,13 +721,18 @@ const HomeScreen = () => {
               </>
             ) : (
               <>
-                <Text className="mb-5 text-sm text-center text-muted-foreground">
-                  Comment était votre trajet avec{" "}
-                  <Text className="font-semibold">
+                <View className="flex-row flex-wrap justify-center items-center gap-1 mb-5 px-2">
+                  <Text className="text-sm text-center text-muted-foreground">
+                    Comment était votre trajet avec
+                  </Text>
+                  <Text className="text-sm font-semibold text-foreground">
                     {ratingPopupTrip?.driver?.name}
-                  </Text>{" "}
-                  ?
-                </Text>
+                  </Text>
+                  {ratingPopupTrip?.driver?.isVerified ? (
+                    <VerifiedBadge size={16} />
+                  ) : null}
+                  <Text className="text-sm text-muted-foreground">?</Text>
+                </View>
                 <StarRating
                   rating={ratingPopupStars}
                   size={36}

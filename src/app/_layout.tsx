@@ -7,6 +7,7 @@ import { StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaListener } from "react-native-safe-area-context";
 import { Uniwind, useUniwind } from "uniwind";
+import { AnimatedSplashGate } from "../components/AnimatedSplashGate";
 import { DriverActiveTripGuard } from "../components/DriverActiveTripGuard";
 import AppBottomSheet from "../components/Sheet/AppBottomSheet";
 import "../global.css";
@@ -45,6 +46,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <AnimatedSplashGate>
       <QueryClientProvider client={queryClientRef.current}>
         <SafeAreaListener
           onChange={({ insets }) => {
@@ -74,6 +76,7 @@ export default function RootLayout() {
         </SafeAreaListener>
         <AppBottomSheet />
       </QueryClientProvider>
+      </AnimatedSplashGate>
     </GestureHandlerRootView>
   );
 }

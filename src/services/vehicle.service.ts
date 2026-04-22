@@ -27,6 +27,8 @@ export type CreateVehicleParams = {
   year?: string;
   plateNumber?: string;
   color?: string;
+  /** URL après upload (optionnel) */
+  photo?: string;
   permitNumber?: string;
   permitPhoto?: string;
   permitPhotoBack?: string;
@@ -44,6 +46,7 @@ export const createVehicle = async (params: CreateVehicleParams) => {
       year: params.year ?? null,
       plateNumber: params.plateNumber ?? null,
       color: params.color ?? null,
+      photo: params.photo ?? null,
       permitNumber: params.permitNumber ?? null,
       permitPhoto: params.permitPhoto ?? null,
       permitPhotoBack: params.permitPhotoBack ?? null,

@@ -6,7 +6,12 @@ import {
   CardTitle,
 } from "@/src/components/ui/card";
 import { Text } from "@/src/components/ui/text";
-import { cn, formatPriceDisplay, tripPriceForVehicle } from "@/src/lib/utils";
+import {
+  cn,
+  formatPriceDisplay,
+  getTripPriceCommissionSplit,
+  tripPriceForVehicle,
+} from "@/src/lib/utils";
 import { getPaymentsSummary } from "@/src/services/payment.service";
 import { createRoute } from "@/src/services/route.service";
 import { getVehicules } from "@/src/services/vehicle.service";
@@ -39,7 +44,7 @@ import MapView, {
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 type PointField = "depart" | "arrivee";
-type FormStep = 1 | 2 | 3 | 4;
+type FormStep = 1 | 2 | 3 | 4 | 5;
 
 type RoutePoint = {
   latitude: number;
@@ -199,7 +204,9 @@ const ShareRouteScreen = () => {
   const openPicker = React.useCallback(
     (mode: "date" | "time") => {
       const value =
-        mode === "date" ? (tripDateValue ?? new Date()) : (tripTimeValue ?? new Date());
+        mode === "date"
+          ? (tripDateValue ?? new Date())
+          : (tripTimeValue ?? new Date());
       setPickerTempValue(value);
 
       if (Platform.OS === "android") {
@@ -274,8 +281,19 @@ const ShareRouteScreen = () => {
   const canGoStep3 = canGoStep2 && Boolean(departure) && Boolean(arrival);
   const canGoStep4 =
     canGoStep3 && Boolean(tripDateValue) && Boolean(tripTimeValue);
+  const canGoStep5 = canGoStep4;
   const seatsNum = Math.min(Math.max(seats, 1), maxSeats);
   const canSubmit = canGoStep4 && seatsNum >= 1;
+
+  const unitTripPrice = React.useMemo(() => {
+    if (!selectedVehicle) return 0;
+    return tripPriceForVehicle(Number(distanceKm), 1, selectedVehicle.type);
+  }, [selectedVehicle, distanceKm]);
+
+  const priceSplit = React.useMemo(
+    () => getTripPriceCommissionSplit(unitTripPrice),
+    [unitTripPrice],
+  );
 
   const getAddressFromCoordinates = async (lat: number, lng: number) => {
     try {
@@ -726,19 +744,21 @@ const ShareRouteScreen = () => {
           </Text>
           <View className="w-6" />
         </View>
-        <View className="flex-row gap-2">
+        <View className="flex-row flex-wrap gap-2">
           {[
             { id: 1, label: "Véhicule", icon: "car-sport-outline" },
             { id: 2, label: "Itinéraire", icon: "map-outline" },
             { id: 3, label: "Date/Heure", icon: "calendar-outline" },
             { id: 4, label: "Places", icon: "people-outline" },
+            /*   { id: 5, label: "Récap", icon: "document-text-outline" }, */
           ].map((item) => {
             const active = step === item.id;
             const allowed =
               item.id === 1 ||
               (item.id === 2 && canGoStep2) ||
               (item.id === 3 && canGoStep3) ||
-              (item.id === 4 && canGoStep4);
+              (item.id === 4 && canGoStep4) ||
+              (item.id === 5 && canGoStep5);
             return (
               <TouchableOpacity
                 key={item.id}
@@ -769,315 +789,509 @@ const ShareRouteScreen = () => {
         </View>
       </View>
 
-      <ScrollView className="flex-1" contentContainerClassName="px-5 pb-8 pt-5">
-        {step === 1 && (
-          <Animated.View entering={FadeInDown.duration(300)}>
-            <Card>
-              <CardHeader>
-                <CardTitle>Choisir le véhicule</CardTitle>
-              </CardHeader>
-              <CardContent className="gap-3">
-                <TouchableOpacity
-                  onPress={() => setVehiclePickerOpen(true)}
-                  className="flex-row justify-between items-center p-4 rounded-xl border border-gray"
-                >
-                  <View className="flex-row flex-1 items-center">
+      {step !== 5 && (
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="px-5 pb-8 pt-5"
+        >
+          {step === 1 && (
+            <Animated.View entering={FadeInDown.duration(300)}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Choisir le véhicule</CardTitle>
+                </CardHeader>
+                <CardContent className="gap-3">
+                  <TouchableOpacity
+                    onPress={() => setVehiclePickerOpen(true)}
+                    className="flex-row justify-between items-center p-4 rounded-xl border border-gray"
+                  >
+                    <View className="flex-row flex-1 items-center">
+                      {selectedVehicle?.photo ? (
+                        <View className="p-2 rounded-full bg-primary/10">
+                          <Ionicons
+                            name={
+                              selectedVehicle?.type === "MOTORCYCLE"
+                                ? "bicycle-outline"
+                                : "car-sport-outline"
+                            }
+                            size={24}
+                            color="#6366f1"
+                          />
+                        </View>
+                      ) : (
+                        /*  <Image
+                          source={{ uri: selectedVehicle.photo }}
+                          className="overflow-hidden rounded-xl"
+                          style={{ width: 48, height: 48 }}
+                          contentFit="cover"
+                        /> */
+                        <View className="p-2 rounded-full bg-primary/10">
+                          <Ionicons
+                            name={
+                              selectedVehicle?.type === "MOTORCYCLE"
+                                ? "bicycle-outline"
+                                : "car-sport-outline"
+                            }
+                            size={24}
+                            color="#6366f1"
+                          />
+                        </View>
+                      )}
+                      <View className="flex-1 ml-3">
+                        <Text className="font-semibold">
+                          {selectedVehicle
+                            ? selectedVehicle.name
+                            : "Aucun véhicule sélectionné"}
+                        </Text>
+                        <Text className="text-xs text-muted-foreground">
+                          {selectedVehicle
+                            ? `${selectedVehicle.maximumPassenger} place(s)`
+                            : "Appuyez pour choisir"}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setVehiclePickerOpen(true)}
+                        className="p-2 rounded-full bg-primary/10"
+                      >
+                        <Ionicons name="pencil" size={20} color="#6366f1" />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                  <Button
+                    className="mt-2 rounded-xl"
+                    disabled={!canGoStep2}
+                    onPress={() => setStep(2)}
+                  >
+                    <Text>Continuer</Text>
+                  </Button>
+                </CardContent>
+              </Card>
+            </Animated.View>
+          )}
+
+          {step === 2 && (
+            <Animated.View entering={FadeInDown.duration(300)}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Itinéraire</CardTitle>
+                </CardHeader>
+                <CardContent className="gap-3">
+                  <TouchableOpacity
+                    className="p-3 rounded-xl border border-gray"
+                    onPress={() => openMapPicker("depart")}
+                  >
+                    <View className="flex-row gap-2 items-center">
+                      <View className="p-2 rounded-full bg-blue-500/10">
+                        <Ionicons
+                          name="navigate-outline"
+                          size={18}
+                          color="#2563eb"
+                        />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-xs text-muted-foreground">
+                          Départ
+                        </Text>
+                        <Text
+                          className="mt-0.5 text-sm font-semibold"
+                          numberOfLines={1}
+                        >
+                          {departure?.address ?? "Choisir le départ sur la map"}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color="#94a3b8"
+                      />
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="p-3 rounded-xl border border-gray"
+                    onPress={() => openMapPicker("arrivee")}
+                  >
+                    <View className="flex-row gap-2 items-center">
+                      <View className="p-2 rounded-full bg-rose-500/10">
+                        <Ionicons
+                          name="flag-outline"
+                          size={18}
+                          color="#e11d48"
+                        />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-xs text-muted-foreground">
+                          Arrivée
+                        </Text>
+                        <Text
+                          className="mt-0.5 text-sm font-semibold"
+                          numberOfLines={1}
+                        >
+                          {arrival?.address ?? "Choisir l'arrivée sur la map"}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color="#94a3b8"
+                      />
+                    </View>
+                  </TouchableOpacity>
+                  <View className="flex-row justify-between items-center p-3 mt-2 rounded-xl bg-primary/10">
+                    <View className="flex-row gap-2 items-center">
+                      <Ionicons
+                        name="swap-horizontal-outline"
+                        size={18}
+                        color="#6366f1"
+                      />
+                      <Text className="text-sm font-semibold">
+                        Distance: {distanceKm} km
+                      </Text>
+                    </View>
+                    <View className="flex-row gap-2 items-center">
+                      <Ionicons name="time-outline" size={18} color="#6366f1" />
+                      <Text className="text-sm font-semibold">
+                        Durée: {durationMin} min
+                      </Text>
+                    </View>
+                  </View>
+                  {durationMin > 0 && (
+                    <Text className="px-2 mt-1 text-xs text-muted-foreground">
+                      Le temps ne prend pas en compte l’état réel de la
+                      circulation
+                    </Text>
+                  )}
+                  <View className="flex-row gap-2 mt-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1 rounded-xl"
+                      onPress={() => setStep(1)}
+                    >
+                      <Text>Retour</Text>
+                    </Button>
+                    <Button
+                      className="flex-1 rounded-xl"
+                      disabled={!canGoStep3}
+                      onPress={() => setStep(3)}
+                    >
+                      <Text>Continuer</Text>
+                    </Button>
+                  </View>
+                </CardContent>
+              </Card>
+            </Animated.View>
+          )}
+
+          {step === 3 && (
+            <Animated.View entering={FadeInDown.duration(300)}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Date et heure</CardTitle>
+                </CardHeader>
+                <CardContent className="gap-3">
+                  <TouchableOpacity
+                    className="flex-row justify-between items-center p-3 rounded-xl border border-gray"
+                    onPress={() => openPicker("date")}
+                  >
+                    <View className="flex-row gap-2 items-center">
+                      <View className="p-2 rounded-full bg-primary/10">
+                        <Ionicons
+                          name="calendar-outline"
+                          size={18}
+                          color="#6366f1"
+                        />
+                      </View>
+                      <Text className="text-sm font-medium">
+                        {tripDateValue
+                          ? formatDate(tripDateValue)
+                          : "Choisir la date"}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color="#94a3b8"
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="flex-row justify-between items-center p-3 rounded-xl border border-gray"
+                    onPress={() => openPicker("time")}
+                  >
+                    <View className="flex-row gap-2 items-center">
+                      <View className="p-2 rounded-full bg-primary/10">
+                        <Ionicons
+                          name="time-outline"
+                          size={18}
+                          color="#6366f1"
+                        />
+                      </View>
+                      <Text className="text-sm font-medium">
+                        {tripTimeValue
+                          ? formatTime(tripTimeValue)
+                          : "Choisir l'heure"}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color="#94a3b8"
+                    />
+                  </TouchableOpacity>
+                  <View className="flex-row gap-2 mt-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1 rounded-xl"
+                      onPress={() => setStep(2)}
+                    >
+                      <Text>Retour</Text>
+                    </Button>
+                    <Button
+                      className="flex-1 rounded-xl"
+                      disabled={!canGoStep4}
+                      onPress={() => setStep(4)}
+                    >
+                      <Text>Continuer</Text>
+                    </Button>
+                  </View>
+                </CardContent>
+              </Card>
+            </Animated.View>
+          )}
+
+          {step === 4 && (
+            <Animated.View entering={FadeInDown.duration(300)}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Nombre de places</CardTitle>
+                </CardHeader>
+                <CardContent className="gap-3">
+                  <View className="flex-row gap-2 items-center mb-2">
                     <View className="p-2 rounded-full bg-primary/10">
                       <Ionicons
-                        name={
-                          selectedVehicle?.type === "MOTORCYCLE"
-                            ? "bicycle-outline"
-                            : "car-sport-outline"
-                        }
-                        size={24}
+                        name="people-outline"
+                        size={18}
                         color="#6366f1"
                       />
                     </View>
-                    <View className="flex-1 ml-3">
-                      <Text className="font-semibold">
-                        {selectedVehicle
-                          ? selectedVehicle.name
-                          : "Aucun véhicule sélectionné"}
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">
-                        {selectedVehicle
-                          ? `${selectedVehicle.maximumPassenger} place(s)`
-                          : "Appuyez pour choisir"}
+                    <Text className="text-xs text-muted-foreground">
+                      Places disponibles pour ce trajet (max {maxSeats})
+                    </Text>
+                  </View>
+                  <View className="flex-row gap-4 justify-center items-center py-4">
+                    <TouchableOpacity
+                      onPress={() => setSeats((s) => Math.max(1, s - 1))}
+                      className="justify-center items-center rounded-full border-2 size-12 border-primary bg-primary/10"
+                    >
+                      <Ionicons name="remove" size={24} color="#6366f1" />
+                    </TouchableOpacity>
+                    <View className="min-w-[60px] items-center">
+                      <Text className="text-2xl font-bold text-foreground">
+                        {seatsNum}
                       </Text>
                     </View>
                     <TouchableOpacity
-                      onPress={() => setVehiclePickerOpen(true)}
-                      className="p-2 rounded-full bg-primary/10"
+                      onPress={() => setSeats((s) => Math.min(maxSeats, s + 1))}
+                      className="justify-center items-center rounded-full border-2 size-12 border-primary bg-primary/10"
                     >
-                      <Ionicons name="pencil" size={20} color="#6366f1" />
+                      <Ionicons name="add" size={24} color="#6366f1" />
                     </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
-                <Button
-                  className="mt-2 rounded-xl"
-                  disabled={!canGoStep2}
-                  onPress={() => setStep(2)}
-                >
-                  <Text>Continuer</Text>
-                </Button>
-              </CardContent>
-            </Card>
-          </Animated.View>
-        )}
-
-        {step === 2 && (
-          <Animated.View entering={FadeInDown.duration(300)}>
-            <Card>
-              <CardHeader>
-                <CardTitle>Itinéraire</CardTitle>
-              </CardHeader>
-              <CardContent className="gap-3">
-                <TouchableOpacity
-                  className="p-3 rounded-xl border border-gray"
-                  onPress={() => openMapPicker("depart")}
-                >
-                  <View className="flex-row gap-2 items-center">
-                    <View className="p-2 rounded-full bg-blue-500/10">
-                      <Ionicons
-                        name="navigate-outline"
-                        size={18}
-                        color="#2563eb"
-                      />
+                  <View className="relative p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10">
+                    <View className="flex-row gap-2 items-center">
+                      <Ionicons name="cash-outline" size={18} color="#059669" />
+                      <Text className="text-xs text-emerald-700">
+                        Prix estimé
+                      </Text>
                     </View>
-                    <View className="flex-1">
+                    <Text className="mt-1 text-lg font-bold text-emerald-700">
+                      {formatPriceDisplay(
+                        tripPriceForVehicle(
+                          Number(distanceKm),
+                          1,
+                          selectedVehicle?.type ?? "CAR",
+                        ),
+                      )}
+                    </Text>
+                  </View>
+
+                  {/* Si c'est voiture */}
+                  {durationMin > 0 && selectedVehicle?.type === "CAR" && (
+                    <Text className="px-2 mt-1 text-xs text-muted-foreground">
+                      C’est le prix d’une réservation pour une personne. Ce prix
+                      peut être différent si la réservation contient plusieurs
+                      personnes
+                    </Text>
+                  )}
+                  <View className="flex-row gap-2 mt-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1 rounded-xl"
+                      onPress={() => setStep(3)}
+                    >
+                      <Text>Retour</Text>
+                    </Button>
+                    <Button
+                      className="flex-1 rounded-xl"
+                      disabled={!canGoStep5}
+                      onPress={() => setStep(5)}
+                    >
+                      <Text>Continuer</Text>
+                    </Button>
+                  </View>
+                </CardContent>
+              </Card>
+            </Animated.View>
+          )}
+        </ScrollView>
+      )}
+
+      {step === 5 && (
+        <>
+          <ScrollView
+            className="flex-1"
+            contentContainerClassName="px-5 pt-5 pb-4"
+          >
+            <Animated.View entering={FadeInDown.duration(300)}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Récapitulatif</CardTitle>
+                </CardHeader>
+                <CardContent className="gap-4">
+                  <View className="gap-3">
+                    <View className="flex-row gap-2 justify-between">
+                      <Text className="text-xs text-muted-foreground">
+                        Véhicule
+                      </Text>
+                      <Text
+                        className="flex-1 text-sm font-semibold text-right"
+                        numberOfLines={2}
+                      >
+                        {selectedVehicle?.name ?? "—"}
+                      </Text>
+                    </View>
+                    <View>
                       <Text className="text-xs text-muted-foreground">
                         Départ
                       </Text>
                       <Text
-                        className="mt-0.5 text-sm font-semibold"
-                        numberOfLines={1}
+                        className="mt-0.5 text-sm font-medium"
+                        numberOfLines={3}
                       >
-                        {departure?.address ?? "Choisir le départ sur la map"}
+                        {departure?.address ?? "—"}
                       </Text>
                     </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color="#94a3b8"
-                    />
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="p-3 rounded-xl border border-gray"
-                  onPress={() => openMapPicker("arrivee")}
-                >
-                  <View className="flex-row gap-2 items-center">
-                    <View className="p-2 rounded-full bg-rose-500/10">
-                      <Ionicons name="flag-outline" size={18} color="#e11d48" />
-                    </View>
-                    <View className="flex-1">
+                    <View>
                       <Text className="text-xs text-muted-foreground">
                         Arrivée
                       </Text>
                       <Text
-                        className="mt-0.5 text-sm font-semibold"
-                        numberOfLines={1}
+                        className="mt-0.5 text-sm font-medium"
+                        numberOfLines={3}
                       >
-                        {arrival?.address ?? "Choisir l'arrivée sur la map"}
+                        {arrival?.address ?? "—"}
                       </Text>
                     </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color="#94a3b8"
-                    />
-                  </View>
-                </TouchableOpacity>
-                <View className="flex-row justify-between items-center p-3 mt-2 rounded-xl bg-primary/10">
-                  <View className="flex-row gap-2 items-center">
-                    <Ionicons
-                      name="swap-horizontal-outline"
-                      size={18}
-                      color="#6366f1"
-                    />
-                    <Text className="text-sm font-semibold">
-                      Distance: {distanceKm} km
-                    </Text>
-                  </View>
-                  <View className="flex-row gap-2 items-center">
-                    <Ionicons name="time-outline" size={18} color="#6366f1" />
-                    <Text className="text-sm font-semibold">
-                      Durée: {durationMin} min
-                    </Text>
-                  </View>
-                </View>
-                {durationMin > 0 && (
-                  <Text className="px-2 mt-1 text-xs text-muted-foreground">
-                    Le temps ne prend pas en compte l’état réel de la
-                    circulation
-                  </Text>
-                )}
-                <View className="flex-row gap-2 mt-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1 rounded-xl"
-                    onPress={() => setStep(1)}
-                  >
-                    <Text>Retour</Text>
-                  </Button>
-                  <Button
-                    className="flex-1 rounded-xl"
-                    disabled={!canGoStep3}
-                    onPress={() => setStep(3)}
-                  >
-                    <Text>Continuer</Text>
-                  </Button>
-                </View>
-              </CardContent>
-            </Card>
-          </Animated.View>
-        )}
-
-        {step === 3 && (
-          <Animated.View entering={FadeInDown.duration(300)}>
-            <Card>
-              <CardHeader>
-                <CardTitle>Date et heure</CardTitle>
-              </CardHeader>
-              <CardContent className="gap-3">
-                <TouchableOpacity
-                  className="flex-row justify-between items-center p-3 rounded-xl border border-gray"
-                  onPress={() => openPicker("date")}
-                >
-                  <View className="flex-row gap-2 items-center">
-                    <View className="p-2 rounded-full bg-primary/10">
-                      <Ionicons
-                        name="calendar-outline"
-                        size={18}
-                        color="#6366f1"
-                      />
+                    <View className="flex-row justify-between">
+                      <Text className="text-xs text-muted-foreground">
+                        Date
+                      </Text>
+                      <Text className="text-sm font-medium">
+                        {tripDateValue ? formatDate(tripDateValue) : "—"}
+                      </Text>
                     </View>
-                    <Text className="text-sm font-medium">
-                      {tripDateValue
-                        ? formatDate(tripDateValue)
-                        : "Choisir la date"}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="flex-row justify-between items-center p-3 rounded-xl border border-gray"
-                  onPress={() => openPicker("time")}
-                >
-                  <View className="flex-row gap-2 items-center">
-                    <View className="p-2 rounded-full bg-primary/10">
-                      <Ionicons name="time-outline" size={18} color="#6366f1" />
+                    <View className="flex-row justify-between">
+                      <Text className="text-xs text-muted-foreground">
+                        Heure
+                      </Text>
+                      <Text className="text-sm font-medium">
+                        {tripTimeValue ? formatTime(tripTimeValue) : "—"}
+                      </Text>
                     </View>
-                    <Text className="text-sm font-medium">
-                      {tripTimeValue
-                        ? formatTime(tripTimeValue)
-                        : "Choisir l'heure"}
-                    </Text>
+                    <View className="flex-row justify-between">
+                      <Text className="text-xs text-muted-foreground">
+                        Places
+                      </Text>
+                      <Text className="text-sm font-medium">{seatsNum}</Text>
+                    </View>
+                    <View className="flex-row flex-wrap gap-y-1 justify-between">
+                      <View className="flex-row gap-1.5 items-center">
+                        <Ionicons
+                          name="swap-horizontal-outline"
+                          size={16}
+                          color="#64748b"
+                        />
+                        <Text className="text-sm font-medium">
+                          {distanceKm} km
+                        </Text>
+                      </View>
+                      <View className="flex-row gap-1.5 items-center">
+                        <Ionicons
+                          name="time-outline"
+                          size={16}
+                          color="#64748b"
+                        />
+                        <Text className="text-sm font-medium">
+                          {durationMin} min
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-                </TouchableOpacity>
-                <View className="flex-row gap-2 mt-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1 rounded-xl"
-                    onPress={() => setStep(2)}
-                  >
-                    <Text>Retour</Text>
-                  </Button>
-                  <Button
-                    className="flex-1 rounded-xl"
-                    disabled={!canGoStep4}
-                    onPress={() => setStep(4)}
-                  >
-                    <Text>Continuer</Text>
-                  </Button>
-                </View>
-              </CardContent>
-            </Card>
-          </Animated.View>
-        )}
 
-        {step === 4 && (
-          <Animated.View entering={FadeInDown.duration(300)}>
-            <Card>
-              <CardHeader>
-                <CardTitle>Nombre de places</CardTitle>
-              </CardHeader>
-              <CardContent className="gap-3">
-                <View className="flex-row gap-2 items-center mb-2">
-                  <View className="p-2 rounded-full bg-primary/10">
-                    <Ionicons name="people-outline" size={18} color="#6366f1" />
-                  </View>
-                  <Text className="text-xs text-muted-foreground">
-                    Places disponibles pour ce trajet (max {maxSeats})
-                  </Text>
-                </View>
-                <View className="flex-row gap-4 justify-center items-center py-4">
-                  <TouchableOpacity
-                    onPress={() => setSeats((s) => Math.max(1, s - 1))}
-                    className="justify-center items-center rounded-full border-2 size-12 border-primary bg-primary/10"
-                  >
-                    <Ionicons name="remove" size={24} color="#6366f1" />
-                  </TouchableOpacity>
-                  <View className="min-w-[60px] items-center">
-                    <Text className="text-2xl font-bold text-foreground">
-                      {seatsNum}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => setSeats((s) => Math.min(maxSeats, s + 1))}
-                    className="justify-center items-center rounded-full border-2 size-12 border-primary bg-primary/10"
-                  >
-                    <Ionicons name="add" size={24} color="#6366f1" />
-                  </TouchableOpacity>
-                </View>
-                <View className="relative p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10">
-                  <View className="flex-row gap-2 items-center">
-                    <Ionicons name="cash-outline" size={18} color="#059669" />
-                    <Text className="text-xs text-emerald-700">
-                      Prix estimé
-                    </Text>
-                  </View>
-                  <Text className="mt-1 text-lg font-bold text-emerald-700">
-                    {formatPriceDisplay(
-                      tripPriceForVehicle(
-                        Number(distanceKm),
-                        1,
-                        selectedVehicle?.type ?? "CAR",
-                      ),
-                    )}
-                  </Text>
-                </View>
+                  <View className="h-px bg-border" />
 
-                {/* Si c'est voiture */}
-                {durationMin > 0 && selectedVehicle?.type === "CAR" && (
-                  <Text className="px-2 mt-1 text-xs text-muted-foreground">
-                    C’est le prix d’une réservation pour une personne. Ce prix
-                    peut être différent si la réservation contient plusieurs
-                    personnes
-                  </Text>
-                )}
-                <View className="flex-row gap-2 mt-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1 rounded-xl"
-                    onPress={() => setStep(3)}
-                  >
-                    <Text>Retour</Text>
-                  </Button>
-                  <Button
-                    className="flex-1 rounded-xl"
-                    disabled={!canSubmit || isPublishing}
-                    onPress={() => void handlePublish()}
-                  >
-                    <Text>{isPublishing ? "Publication..." : "Publier"}</Text>
-                  </Button>
-                </View>
-              </CardContent>
-            </Card>
-          </Animated.View>
-        )}
-      </ScrollView>
+                  <View className="gap-2">
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-sm font-semibold">Prix total</Text>
+                      <Text className="text-base font-bold text-foreground">
+                        {formatPriceDisplay(priceSplit.total)}
+                      </Text>
+                    </View>
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-sm text-muted-foreground">
+                        Commission Ilicoo
+                      </Text>
+                      <Text className="text-sm font-semibold text-foreground">
+                        {formatPriceDisplay(priceSplit.ilicoPart)}
+                      </Text>
+                    </View>
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-sm text-muted-foreground">
+                        Votre part (conducteur)
+                      </Text>
+                      <Text className="text-sm font-semibold text-emerald-700">
+                        {formatPriceDisplay(priceSplit.driverPart)}
+                      </Text>
+                    </View>
+                    <Text className="text-[11px] text-muted-foreground">
+                      Indicatif pour une réservation d’1 place. La commission
+                      finale s’applique au total encaissé en fin de trajet.
+                    </Text>
+                  </View>
+                </CardContent>
+              </Card>
+            </Animated.View>
+          </ScrollView>
+
+          <View className="px-5 pt-3 border-t border-gray-200 pb-safe bg-background">
+            <View className="flex-row gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onPress={() => setStep(4)}
+                disabled={isPublishing}
+              >
+                <Text>Retour</Text>
+              </Button>
+              <Button
+                className="flex-1 rounded-xl"
+                disabled={!canSubmit || isPublishing}
+                onPress={() => void handlePublish()}
+              >
+                <Text>{isPublishing ? "Publication..." : "Publier"}</Text>
+              </Button>
+            </View>
+          </View>
+        </>
+      )}
 
       <Modal
         transparent
@@ -1122,17 +1336,37 @@ const ShareRouteScreen = () => {
                     )}
                   >
                     <View className="flex-row items-center">
-                      <View className="p-2 rounded-full bg-primary/10">
-                        <Ionicons
-                          name={
-                            v.type === "MOTORCYCLE"
-                              ? "bicycle-outline"
-                              : "car-sport-outline"
-                          }
-                          size={24}
-                          color="#6366f1"
-                        />
-                      </View>
+                      {v.photo ? (
+                        <View className="p-2 rounded-full bg-primary/10">
+                          <Ionicons
+                            name={
+                              v.type === "MOTORCYCLE"
+                                ? "bicycle-outline"
+                                : "car-sport-outline"
+                            }
+                            size={24}
+                            color="#6366f1"
+                          />
+                        </View>
+                      ) : (
+                        /*    <Image
+                          source={{ uri: v.photo }}
+                          className="overflow-hidden rounded-xl"
+                          style={{ width: 48, height: 48 }}
+                          contentFit="cover"
+                        /> */
+                        <View className="p-2 rounded-full bg-primary/10">
+                          <Ionicons
+                            name={
+                              v.type === "MOTORCYCLE"
+                                ? "bicycle-outline"
+                                : "car-sport-outline"
+                            }
+                            size={24}
+                            color="#6366f1"
+                          />
+                        </View>
+                      )}
                       <View className="flex-1 ml-3">
                         <Text className="font-semibold">{v.name}</Text>
                         <Text className="text-xs text-muted-foreground">

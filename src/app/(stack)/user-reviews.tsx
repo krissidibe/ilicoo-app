@@ -1,6 +1,7 @@
 import HeaderApp from "@/src/components/Header/HeaderApp";
 import StarRating from "@/src/components/StarRating";
 import { Text } from "@/src/components/ui/text";
+import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import { getUserRatingsPage } from "@/src/services/rating.service";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
@@ -12,7 +13,12 @@ type ReviewItem = {
   stars: number;
   comment?: string | null;
   createdAt: string;
-  fromUser?: { id: string; name: string; image: string | null };
+  fromUser?: {
+    id: string;
+    name: string;
+    image: string | null;
+    isVerified?: boolean;
+  };
 };
 
 const PAGE_SIZE = 10;
@@ -52,7 +58,14 @@ const UserReviewsScreen = () => {
           ListHeaderComponent={
             <View className="p-4 mb-3 bg-white rounded-2xl border border-gray-200">
               <Text className="text-sm text-muted-foreground">Profil</Text>
-              <Text className="text-lg font-bold text-foreground">{titleName}</Text>
+              <View className="flex-row items-center gap-1.5 mt-0.5">
+                <Text className="text-lg font-bold text-foreground">
+                  {first?.profileUser?.name ?? titleName}
+                </Text>
+                {first?.profileUser?.isVerified ? (
+                  <VerifiedBadge size={20} className="shrink-0" />
+                ) : null}
+              </View>
               <View className="flex-row gap-2 items-center mt-2">
                 <StarRating
                   rating={Math.round(first?.averageRating ?? 0)}
@@ -69,9 +82,14 @@ const UserReviewsScreen = () => {
           renderItem={({ item }) => (
             <View className="p-4 bg-white rounded-2xl border border-gray-200">
               <View className="flex-row justify-between items-center">
-                <Text className="text-sm font-semibold text-foreground">
-                  {item.fromUser?.name ?? "Utilisateur"}
-                </Text>
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-sm font-semibold text-foreground">
+                    {item.fromUser?.name ?? "Utilisateur"}
+                  </Text>
+                  {item.fromUser?.isVerified ? (
+                    <VerifiedBadge size={15} className="shrink-0" />
+                  ) : null}
+                </View>
                 <Text className="text-xs text-muted-foreground">
                   {new Date(item.createdAt).toLocaleDateString("fr-FR")}
                 </Text>
