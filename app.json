@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aboukris.Ilicoo-app",
+      "bundleIdentifier": "com.ilicoo.dev",
       "config": {
         "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
       }
@@ -36,7 +36,7 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.READ_MEDIA_IMAGES"
       ],
-      "package": "com.aboukris.Ilicooapp"
+      "package": "com.ilicoo.dev"
     },
     "web": {
       "output": "static",

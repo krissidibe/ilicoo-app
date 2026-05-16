@@ -334,7 +334,7 @@ const SignUp = () => {
               <Button
                 size="lg"
                 variant="outline"
-                className="justify-center mt-20 mb-3 w-full"
+                className="hidden justify-center mt-20 mb-3 w-full"
                 disabled={googleLoading}
                 onPress={() => void handleGoogleSignUp()}
               >
@@ -350,7 +350,7 @@ const SignUp = () => {
               <Button
                 size="lg"
                 variant="outline"
-                className="justify-center mb-3 w-full bg-black"
+                className="hidden justify-center mb-3 w-full bg-black"
                 disabled={googleLoading}
                 onPress={() => handleMethodSelection("apple")}
               >
@@ -387,7 +387,9 @@ const SignUp = () => {
                     ? "Numéro WhatsApp et profil"
                     : "Étape 2/2 : informations Email"}
                 </Text>
-                <TouchableOpacity onPress={() => void handleChangeMethodFromForm()}>
+                <TouchableOpacity
+                  onPress={() => void handleChangeMethodFromForm()}
+                >
                   <Text className="text-sm text-primary">Changer de type</Text>
                 </TouchableOpacity>
               </View>

@@ -165,7 +165,7 @@ const AuthIndex = () => {
             <Button
               size="lg"
               variant="outline"
-              className="justify-center w-full"
+              className="hidden justify-center w-full"
               onPress={() => handleSignInMethod("google")}
             >
               <Ionicons name="logo-google" size={18} color="#EA4335" />
@@ -176,7 +176,7 @@ const AuthIndex = () => {
             <Button
               size="lg"
               variant="outline"
-              className="justify-center w-full bg-black"
+              className="hidden justify-center w-full bg-black"
               onPress={() => handleSignInMethod("apple")}
             >
               <Ionicons name="logo-apple" size={18} color="white" />
@@ -197,7 +197,7 @@ const AuthIndex = () => {
             </Button>
             <Button
               size="lg"
-              className="justify-center w-full"
+              className="hidden justify-center w-full"
               onPress={() => handleSignInMethod("phone")}
             >
               <Ionicons name="call-outline" size={18} color="white" />
