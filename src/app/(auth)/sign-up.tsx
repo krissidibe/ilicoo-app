@@ -1,4 +1,5 @@
 import { Button } from "@/src/components/ui/button";
+import { Checkbox } from "@/src/components/ui/checkbox";
 import { Input } from "@/src/components/ui/input";
 import {
   Select,
@@ -59,12 +60,25 @@ const profileFieldsSchema = z.object({
   }),
 });
 
-const signUpSchema = profileFieldsSchema.extend({
-  email: z.email({ message: "Email invalide" }),
-  password: z
-    .string()
-    .min(6, { message: "Le mot de passe doit contenir au moins 6 caractères" }),
+const legalAcceptanceSchema = z.object({
+  acceptTerms: z.boolean().refine((value) => value, {
+    message: "Vous devez accepter les conditions générales d'utilisation",
+  }),
+  acceptPrivacy: z.boolean().refine((value) => value, {
+    message: "Vous devez accepter la politique de confidentialité",
+  }),
 });
+
+const signUpSchema = profileFieldsSchema
+  .extend({
+    email: z.email({ message: "Email invalide" }),
+    password: z
+      .string()
+      .min(6, {
+        message: "Le mot de passe doit contenir au moins 6 caractères",
+      }),
+  })
+  .merge(legalAcceptanceSchema);
 
 type ProfileFieldsData = z.infer<typeof profileFieldsSchema>;
 type SignUpSchema = z.infer<typeof signUpSchema>;
@@ -85,6 +99,7 @@ const SignUp = () => {
   const [otpMessage, setOtpMessage] = useState<string>("");
   const [socialError, setSocialError] = useState<string>("");
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [selectedCountry, setSelectedCountry] =
     useState<CountryCode>(defaultCountry);
   const [submittedData, setSubmittedData] = useState<
@@ -107,6 +122,8 @@ const SignUp = () => {
       phoneNumber: "",
       gender: "male",
       password: "",
+      acceptTerms: false,
+      acceptPrivacy: false,
     },
   });
 
@@ -193,10 +210,21 @@ const SignUp = () => {
       phoneDialCode: getValues("phoneDialCode"),
       phoneNumber: getValues("phoneNumber"),
       gender: getValues("gender"),
+      acceptTerms: getValues("acceptTerms"),
+      acceptPrivacy: getValues("acceptPrivacy"),
     };
-    const parsed = profileFieldsSchema.safeParse(raw);
+    const parsed = profileFieldsSchema
+      .merge(legalAcceptanceSchema)
+      .safeParse(raw);
     if (!parsed.success) {
-      void trigger(["name", "phoneNumber", "phoneDialCode", "gender"]);
+      void trigger([
+        "name",
+        "phoneNumber",
+        "phoneDialCode",
+        "gender",
+        "acceptTerms",
+        "acceptPrivacy",
+      ]);
       return;
     }
     setSubmittedData(parsed.data);
@@ -328,13 +356,10 @@ const SignUp = () => {
               entering={FadeInDown.delay(240).springify()}
               className="gap-4 mt-8"
             >
-              <Text className="text-base font-semibold">
-                Étape 1/2 : choisissez votre type de compte
-              </Text>
               <Button
                 size="lg"
                 variant="outline"
-                className="hidden justify-center mt-20 mb-3 w-full"
+                className="justify-center mt-20 mb-3 w-full"
                 disabled={googleLoading}
                 onPress={() => void handleGoogleSignUp()}
               >
@@ -350,7 +375,7 @@ const SignUp = () => {
               <Button
                 size="lg"
                 variant="outline"
-                className="hidden justify-center mb-3 w-full bg-black"
+                className="justify-center mb-3 w-full bg-black"
                 disabled={googleLoading}
                 onPress={() => handleMethodSelection("apple")}
               >
@@ -381,17 +406,15 @@ const SignUp = () => {
               entering={FadeInDown.delay(260).springify()}
               className="gap-5 mt-6"
             >
-              <View className="flex-row justify-between items-center mb-5">
+              <View className="flex-row justify-between items-center mb-0">
                 <Text className="text-base font-semibold">
-                  {method === "google"
-                    ? "Numéro WhatsApp et profil"
-                    : "Étape 2/2 : informations Email"}
+                  {method === "google" ? "Numéro WhatsApp et profil" : ""}
                 </Text>
-                <TouchableOpacity
+                {/* <TouchableOpacity
                   onPress={() => void handleChangeMethodFromForm()}
                 >
                   <Text className="text-sm text-primary">Changer de type</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </View>
 
               {method === "email" && (
@@ -428,25 +451,43 @@ const SignUp = () => {
               {method === "email" && (
                 <View className="gap-2 items-start">
                   <Label className="text-base">Mot de passe</Label>
-                  <Controller
-                    name="password"
-                    control={control}
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <Input
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="Mot de passe"
-                        secureTextEntry
-                        autoCapitalize="none"
-                        autoComplete="password-new"
-                        value={value}
-                        className={cn(
-                          "focus:border-primary",
-                          errors.password && "border-red-500",
-                        )}
+                  <View className="relative w-full">
+                    <Controller
+                      name="password"
+                      control={control}
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <Input
+                          onBlur={onBlur}
+                          onChangeText={onChange}
+                          placeholder="Mot de passe"
+                          secureTextEntry={!showPassword}
+                          autoCapitalize="none"
+                          autoComplete="password-new"
+                          value={value}
+                          className={cn(
+                            "w-full pr-12 focus:border-primary",
+                            errors.password && "border-red-500",
+                          )}
+                        />
+                      )}
+                    />
+                    <TouchableOpacity
+                      className="absolute top-0 right-3 bottom-0 justify-center"
+                      onPress={() => setShowPassword((current) => !current)}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        showPassword
+                          ? "Masquer le mot de passe"
+                          : "Afficher le mot de passe"
+                      }
+                    >
+                      <Ionicons
+                        name={showPassword ? "eye-off-outline" : "eye-outline"}
+                        size={20}
+                        color="#64748b"
                       />
-                    )}
-                  />
+                    </TouchableOpacity>
+                  </View>
                   {errors.password && (
                     <Text className="text-xs text-red-500">
                       {errors.password.message}
@@ -514,7 +555,9 @@ const SignUp = () => {
                     render={({ field: { onChange, onBlur, value } }) => (
                       <Input
                         onBlur={onBlur}
-                        onChangeText={onChange}
+                        onChangeText={(text) =>
+                          onChange(text.replace(/\s+/g, ""))
+                        }
                         placeholder="Numéro de téléphone"
                         keyboardType="phone-pad"
                         autoCapitalize="none"
@@ -555,6 +598,68 @@ const SignUp = () => {
                 {errors.gender && (
                   <Text className="text-xs text-red-500">
                     {errors.gender.message}
+                  </Text>
+                )}
+              </View>
+
+              <View className="gap-3">
+                <Controller
+                  name="acceptTerms"
+                  control={control}
+                  render={({ field: { onChange, value } }) => (
+                    <View className="flex-row gap-3 items-start">
+                      <Checkbox
+                        checked={value}
+                        onCheckedChange={(checked) => onChange(checked === true)}
+                        className="mt-0.5"
+                      />
+                      <Text className="flex-1 text-sm leading-5 text-foreground">
+                        J&apos;accepte les{" "}
+                        <Text
+                          className="font-semibold underline text-primary"
+                          onPress={() =>
+                            router.push("/(stack)/terms" as any)
+                          }
+                        >
+                          conditions générales d&apos;utilisation
+                        </Text>
+                      </Text>
+                    </View>
+                  )}
+                />
+                {errors.acceptTerms && (
+                  <Text className="text-xs text-red-500">
+                    {errors.acceptTerms.message}
+                  </Text>
+                )}
+
+                <Controller
+                  name="acceptPrivacy"
+                  control={control}
+                  render={({ field: { onChange, value } }) => (
+                    <View className="flex-row gap-3 items-start">
+                      <Checkbox
+                        checked={value}
+                        onCheckedChange={(checked) => onChange(checked === true)}
+                        className="mt-0.5"
+                      />
+                      <Text className="flex-1 text-sm leading-5 text-foreground">
+                        J&apos;accepte la{" "}
+                        <Text
+                          className="font-semibold underline text-primary"
+                          onPress={() =>
+                            router.push("/(stack)/privacy" as any)
+                          }
+                        >
+                          politique de confidentialité
+                        </Text>
+                      </Text>
+                    </View>
+                  )}
+                />
+                {errors.acceptPrivacy && (
+                  <Text className="text-xs text-red-500">
+                    {errors.acceptPrivacy.message}
                   </Text>
                 )}
               </View>

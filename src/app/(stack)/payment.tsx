@@ -43,7 +43,7 @@ const PaymentScreen = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <HeaderApp title="Paiement commission" />
+      <HeaderApp title="Paiement commission" showBack />
       <ScrollView
         className="flex-1"
         contentContainerClassName="px-5 pt-4 pb-10"

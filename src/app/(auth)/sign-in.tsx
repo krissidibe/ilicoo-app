@@ -34,7 +34,7 @@ const SignIn = () => {
   const method = (params.method ?? "email") as SignInMethod;
   const defaultCountry: CountryCode = useMemo(
     () =>
-      countryCodes.find((country) => country.code === "FR") ?? countryCodes[0],
+      countryCodes.find((country) => country.code === "ML") ?? countryCodes[0],
     [],
   );
   const countryCodeSheetRef = useRef<CountryCodeSheetRef>(null);
@@ -42,6 +42,7 @@ const SignIn = () => {
     useState<CountryCode>(defaultCountry);
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState<string>("");
   const [phoneStep, setPhoneStep] = useState<PhoneStep>("input");
   const [otpValue, setOtpValue] = useState<string>("");
@@ -186,15 +187,33 @@ const SignIn = () => {
               </View>
               <View className="gap-2 items-start">
                 <Label className="text-base">Mot de passe</Label>
-                <Input
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Mot de passe"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  className="focus:border-primary"
-                />
+                <View className="relative w-full">
+                  <Input
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Mot de passe"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    className="w-full pr-12 focus:border-primary"
+                  />
+                  <TouchableOpacity
+                    className="absolute top-0 right-3 bottom-0 justify-center"
+                    onPress={() => setShowPassword((current) => !current)}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      showPassword
+                        ? "Masquer le mot de passe"
+                        : "Afficher le mot de passe"
+                    }
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#64748b"
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
               {otpMessage.length > 0 && (
                 <Text

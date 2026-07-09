@@ -45,7 +45,7 @@ const UserReviewsScreen = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <HeaderApp title="Avis utilisateur" />
+      <HeaderApp title="Avis utilisateur" showBack />
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="small" color="#6366f1" />

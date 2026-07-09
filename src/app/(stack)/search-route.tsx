@@ -1058,7 +1058,7 @@ const SearchRouteScreen = () => {
                         {driver.vehiclePhotoUrl ? (
                           <Image
                             source={{ uri: driver.vehiclePhotoUrl }}
-                            className="rounded-xl overflow-hidden"
+                            className="overflow-hidden rounded-xl"
                             style={{ width: 44, height: 44 }}
                             contentFit="cover"
                           />
@@ -1083,7 +1083,7 @@ const SearchRouteScreen = () => {
                           </View>
                         )}
 
-                        <View className="flex-1 flex-row items-center gap-1 ml-2 min-w-0">
+                        <View className="flex-row flex-1 gap-1 items-center ml-2 min-w-0">
                           <Text
                             className={cn(
                               "font-semibold text-base shrink",
@@ -1628,7 +1628,7 @@ const SearchRouteScreen = () => {
                         className="mt-0.5 text-sm font-semibold"
                         numberOfLines={1}
                       >
-                        {departure?.address ?? "Choisir le départ sur la map"}
+                        {departure?.address ?? "Choisir un point de départ"}
                       </Text>
                     </View>
                     <Ionicons
@@ -1654,7 +1654,7 @@ const SearchRouteScreen = () => {
                         className="mt-0.5 text-sm font-semibold"
                         numberOfLines={1}
                       >
-                        {arrival?.address ?? "Choisir l'arrivée sur la map"}
+                        {arrival?.address ?? "Choisir une destination"}
                       </Text>
                     </View>
                     <Ionicons
@@ -1684,7 +1684,7 @@ const SearchRouteScreen = () => {
                 </View>
                 {durationMin > 0 && (
                   <Text className="px-2 mt-1 text-xs text-muted-foreground">
-                    Le temps ne prend pas en compte l’état réel de la
+                    La durée du trajet ne prend pas en compte l'état réel de la
                     circulation
                   </Text>
                 )}

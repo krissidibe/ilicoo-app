@@ -143,7 +143,7 @@ const EditProfileScreen = () => {
   if (isLoading || !user) {
     return (
       <View className="flex-1 bg-background">
-        <HeaderApp title="Modifier le profil" />
+        <HeaderApp title="Modifier le profil" showBack />
         <View className="flex-1 justify-center items-center">
           <Text className="text-muted-foreground">Chargement...</Text>
         </View>
@@ -153,7 +153,7 @@ const EditProfileScreen = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <HeaderApp title="Modifier le profil" />
+      <HeaderApp title="Modifier le profil" showBack />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"

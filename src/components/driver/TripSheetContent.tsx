@@ -18,7 +18,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React from "react";
-import { ScrollView, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
 
 const statusConfig = (
   status: MyPublishedTrip["status"],
@@ -81,6 +81,20 @@ export const TripSheetContent = ({
 }: TripSheetContentProps) => {
   const { close, expandedPassengerId, setExpandedPassengerId } =
     useBottomSheetStore();
+  const handleCancelTripPress = (id: string): void => {
+    Alert.alert(
+      "Annuler le trajet",
+      "Êtes-vous sûr de vouloir annuler ce trajet ? Les passagers seront notifiés.",
+      [
+        { text: "Non", style: "cancel" },
+        {
+          text: "Oui, annuler",
+          style: "destructive",
+          onPress: () => onCancelTrip(id),
+        },
+      ],
+    );
+  };
   const { data: routesData } = useQuery({
     ...getMyRoutes(),
     refetchInterval: 5000,
@@ -527,7 +541,7 @@ export const TripSheetContent = ({
             <Button
               variant="outline"
               className="rounded-xl"
-              onPress={() => onCancelTrip(trip.id)}
+              onPress={() => handleCancelTripPress(trip.id)}
               disabled={isRouteStatusPending}
             >
               <Text>Annuler</Text>

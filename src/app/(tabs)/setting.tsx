@@ -5,8 +5,8 @@ import {
   AvatarImage,
 } from "@/src/components/ui/avatar";
 import { Text } from "@/src/components/ui/text";
-import { authClient } from "@/src/lib/auth-client";
 import { AvatarWithVerifiedOutline } from "@/src/components/VerifiedBadge";
+import { authClient } from "@/src/lib/auth-client";
 import { getUserRatings } from "@/src/services/rating.service";
 import { getUser } from "@/src/services/user.service";
 import { useAuthStore } from "@/src/store/auth.store";
@@ -241,8 +241,8 @@ const Setting = () => {
             <Animated.View entering={FadeInDown.delay(125).duration(350)}>
               <SettingItem
                 icon="document-text-outline"
-                title="Mon permis"
-                subtitle="Gérer les informations de permis"
+                title="Mes documents"
+                subtitle="Gérer les informations de documents"
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push("/(stack)/edit-permit" as any);

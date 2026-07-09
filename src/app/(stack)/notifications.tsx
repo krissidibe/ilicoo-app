@@ -386,7 +386,9 @@ const NotificationsScreen = () => {
             >
               <View className="flex-row gap-2 items-center">
                 <Ionicons name="car-outline" size={16} color="white" />
-                <Text className="font-semibold text-white">Voir mes trajets</Text>
+                <Text className="font-semibold text-white">
+                  Voir mes trajets
+                </Text>
               </View>
             </Button>
           )}
@@ -401,7 +403,7 @@ const NotificationsScreen = () => {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <HeaderApp title="Notifications" />
+      <HeaderApp title="Notifications" showBack />
 
       <ScrollView
         className="flex-1"
@@ -472,7 +474,7 @@ const NotificationsScreen = () => {
               Tout est calme
             </Text>
             <Text className="text-sm text-muted-foreground text-center mt-2 max-w-[240px]">
-              Vous serez notifié des demandes de trajet et mises à jour
+              Vous serez notifiés des demandes et mise à jour de trajet
             </Text>
           </Animated.View>
         ) : (

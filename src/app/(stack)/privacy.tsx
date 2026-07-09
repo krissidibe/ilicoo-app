@@ -35,7 +35,7 @@ const SECTIONS = [
 const PrivacyScreen = () => {
   return (
     <View className="flex-1 bg-background">
-      <HeaderApp title="Confidentialité" />
+      <HeaderApp title="Confidentialité" showBack />
       <ScrollView
         className="flex-1"
         contentContainerClassName="px-5 pb-12 pt-5"

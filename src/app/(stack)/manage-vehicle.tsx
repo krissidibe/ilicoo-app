@@ -4,12 +4,11 @@ import { Text } from "@/src/components/ui/text";
 import { cn } from "@/src/lib/utils";
 import { queryKeys } from "@/src/services/queryKeys";
 import { uploadImageFile } from "@/src/services/upload.service";
-import { createVehicle } from "@/src/services/vehicle.service";
 import { getUser } from "@/src/services/user.service";
+import { createVehicle } from "@/src/services/vehicle.service";
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
-import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -67,14 +66,21 @@ type VehicleFormValues = {
 
 const ManageVehicleScreen = () => {
   const { data: currentUser } = useQuery(getUser());
-  const hasPermitInfo = !!(currentUser?.permitNumber || currentUser?.permitPhoto || currentUser?.permitPhotoBack || currentUser?.identityPhoto);
+  const hasPermitInfo = !!(
+    currentUser?.permitNumber ||
+    currentUser?.permitPhoto ||
+    currentUser?.permitPhotoBack ||
+    currentUser?.identityPhoto
+  );
 
   const [currentStep, setCurrentStep] = React.useState<number>(0);
   const [furthestUnlockedStep, setFurthestUnlockedStep] =
     React.useState<number>(0);
   const [yearSheetOpen, setYearSheetOpen] = React.useState(false);
   const [colorSheetOpen, setColorSheetOpen] = React.useState(false);
-  const [vehiclePhotoUri, setVehiclePhotoUri] = React.useState<string | null>(null);
+  const [vehiclePhotoUri, setVehiclePhotoUri] = React.useState<string | null>(
+    null,
+  );
   const [isSending, setIsSending] = React.useState(false);
 
   const openVehiclePhotoLibrary = React.useCallback(async () => {
@@ -145,7 +151,11 @@ const ManageVehicleScreen = () => {
   const steps = React.useMemo(() => {
     const base = [
       { id: 0, label: "Infos", icon: "information-circle-outline" },
-      { id: 1, label: "Véhicule", icon: isMoto ? "bicycle-outline" : "car-sport-outline" },
+      {
+        id: 1,
+        label: "Véhicule",
+        icon: isMoto ? "bicycle-outline" : "car-sport-outline",
+      },
     ];
     if (!isMoto && !hasPermitInfo) {
       base.push({ id: 2, label: "Permis", icon: "document-text-outline" });
@@ -169,15 +179,15 @@ const ManageVehicleScreen = () => {
         ["vehicleName", "color"],
       ]
     : hasPermitInfo
-    ? [
-        ["vehicleType", "maximumPassenger"],
-        ["vehicleName", "year", "plateNumber", "color"],
-      ]
-    : [
-        ["vehicleType", "maximumPassenger"],
-        ["vehicleName", "year", "plateNumber", "color"],
-        ["licenseNumber", "licensePhoto", "permitPhotoBack", "identityPhoto"],
-      ];
+      ? [
+          ["vehicleType", "maximumPassenger"],
+          ["vehicleName", "year", "plateNumber", "color"],
+        ]
+      : [
+          ["vehicleType", "maximumPassenger"],
+          ["vehicleName", "year", "plateNumber", "color"],
+          ["licenseNumber", "licensePhoto", "permitPhotoBack", "identityPhoto"],
+        ];
 
   const validatePreviousSteps = async (
     targetStep: number,
@@ -225,9 +235,8 @@ const ManageVehicleScreen = () => {
 
   const yearOptions = React.useMemo(() => {
     const currentYear = new Date().getFullYear();
-    return Array.from(
-      { length: currentYear - 1989 },
-      (_, index) => String(currentYear - index),
+    return Array.from({ length: currentYear - 1989 }, (_, index) =>
+      String(currentYear - index),
     );
   }, []);
 
@@ -341,7 +350,11 @@ const ManageVehicleScreen = () => {
                     )}
                     onPress={() => onChange("voiture")}
                   >
-                    <Ionicons name="car-sport-outline" size={20} color="#0ea5e9" />
+                    <Ionicons
+                      name="car-sport-outline"
+                      size={20}
+                      color="#0ea5e9"
+                    />
                     <Text className="mt-2 text-sm font-semibold">Voiture</Text>
                     <Text className="text-xs opacity-60">Max 4 passagers</Text>
                   </TouchableOpacity>
@@ -354,7 +367,11 @@ const ManageVehicleScreen = () => {
                     )}
                     onPress={() => onChange("moto")}
                   >
-                    <Ionicons name="bicycle-outline" size={20} color="#0ea5e9" />
+                    <Ionicons
+                      name="bicycle-outline"
+                      size={20}
+                      color="#0ea5e9"
+                    />
                     <Text className="mt-2 text-sm font-semibold">Moto</Text>
                     <Text className="text-xs opacity-60">Max 1 passager</Text>
                   </TouchableOpacity>
@@ -423,12 +440,16 @@ const ManageVehicleScreen = () => {
                       </Text>
                       <TouchableOpacity
                         onPress={() => setYearSheetOpen(true)}
-                        className="flex-row justify-between items-center p-4 rounded-xl border border-gray bg-white"
+                        className="flex-row justify-between items-center p-4 bg-white rounded-xl border border-gray"
                       >
                         <Text className="text-sm">
                           {value ? value : "Choisir l'année"}
                         </Text>
-                        <Ionicons name="calendar-outline" size={18} color="#64748b" />
+                        <Ionicons
+                          name="calendar-outline"
+                          size={18}
+                          color="#64748b"
+                        />
                       </TouchableOpacity>
                       {errors.year ? (
                         <Text className="mt-1 text-xs text-red-500">
@@ -475,18 +496,23 @@ const ManageVehicleScreen = () => {
                   </Text>
                   <TouchableOpacity
                     onPress={() => setColorSheetOpen(true)}
-                    className="flex-row justify-between items-center p-4 rounded-xl border border-gray bg-white"
+                    className="flex-row justify-between items-center p-4 bg-white rounded-xl border border-gray"
                   >
-                    <View className="flex-row items-center gap-2">
+                    <View className="flex-row gap-2 items-center">
                       {value ? (
                         <View
-                          className="size-4 rounded-full border border-gray-300"
+                          className="rounded-full border border-gray-300 size-4"
                           style={{
                             backgroundColor: COLOR_HEX[value] ?? "#9ca3af",
                           }}
                         />
                       ) : null}
-                      <Text className={cn("text-sm", !value && "text-muted-foreground")}>
+                      <Text
+                        className={cn(
+                          "text-sm",
+                          !value && "text-muted-foreground",
+                        )}
+                      >
                         {value || "Choisir une couleur"}
                       </Text>
                     </View>
@@ -577,21 +603,24 @@ const ManageVehicleScreen = () => {
                         <TouchableOpacity
                           key={colorName}
                           onPress={() => {
-                            setValue("color", colorName, { shouldValidate: true });
+                            setValue("color", colorName, {
+                              shouldValidate: true,
+                            });
                             setColorSheetOpen(false);
                           }}
                           className={cn(
-                            "flex-row justify-between items-center p-4 rounded-xl border mb-3",
+                            "flex-row justify-between items-center p-4 mb-3 rounded-xl border",
                             selected
                               ? "border-primary bg-primary/10"
                               : "border-gray",
                           )}
                         >
-                          <View className="flex-row items-center gap-2">
+                          <View className="flex-row gap-2 items-center">
                             <View
-                              className="size-4 rounded-full border border-gray-300"
+                              className="rounded-full border border-gray-300 size-4"
                               style={{
-                                backgroundColor: COLOR_HEX[colorName] ?? "#9ca3af",
+                                backgroundColor:
+                                  COLOR_HEX[colorName] ?? "#9ca3af",
                               }}
                             />
                             <Text className="text-sm font-semibold text-foreground">
@@ -613,7 +642,7 @@ const ManageVehicleScreen = () => {
               </View>
             </Modal>
 
-            <View>
+            {/* <View>
               <Text className="mb-1 text-xs text-muted-foreground">
                 Photo du véhicule (optionnel)
               </Text>
@@ -637,7 +666,7 @@ const ManageVehicleScreen = () => {
                 </View>
               ) : (
                 <TouchableOpacity
-                  className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-primary/40 bg-white"
+                  className="flex-row justify-between items-center p-4 bg-white rounded-xl border border-dashed border-primary/40"
                   onPress={() => {
                     void openVehiclePhotoLibrary();
                   }}
@@ -651,7 +680,7 @@ const ManageVehicleScreen = () => {
                   </Text>
                 </TouchableOpacity>
               )}
-            </View>
+            </View> */}
 
             {isMoto ? (
               <Controller
@@ -660,7 +689,7 @@ const ManageVehicleScreen = () => {
                 render={({ field: { value, onChange } }) => (
                   <View>
                     <Text className="mb-1 text-xs text-muted-foreground">
-                      Photo d'identité (optionnel)
+                      Photo d&apos;identité (optionnel)
                     </Text>
                     <TouchableOpacity
                       className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
@@ -829,17 +858,22 @@ const ManageVehicleScreen = () => {
             />
 
             <View className="p-4 rounded-2xl border border-primary/20 bg-primary/10">
-              <Text className="text-xs text-muted-foreground">Récapitulatif</Text>
+              <Text className="text-xs text-muted-foreground">
+                Récapitulatif
+              </Text>
               <Text className="mt-1 text-sm">Type: Voiture</Text>
               <Text className="text-sm">Max passagers: {maxPassenger}</Text>
               <Text className="text-sm">
-                Photo permis recto: {uploadedLicensePhoto ? "Ajoutée" : "Non ajoutée"}
+                Photo permis recto:{" "}
+                {uploadedLicensePhoto ? "Ajoutée" : "Non ajoutée"}
               </Text>
               <Text className="text-sm">
-                Photo permis verso: {uploadedPermitPhotoBack ? "Ajoutée" : "Non ajoutée"}
+                Photo permis verso:{" "}
+                {uploadedPermitPhotoBack ? "Ajoutée" : "Non ajoutée"}
               </Text>
               <Text className="text-sm">
-                Photo d'identité: {uploadedIdentityPhoto ? "Ajoutée" : "Non ajoutée"}
+                Photo d'identité:{" "}
+                {uploadedIdentityPhoto ? "Ajoutée" : "Non ajoutée"}
               </Text>
             </View>
           </Animated.View>
@@ -856,7 +890,10 @@ const ManageVehicleScreen = () => {
             <Text>{currentStep === 0 ? "Retour" : "Précédent"}</Text>
           </Button>
           {currentStep < steps.length - 1 ? (
-            <Button className="flex-1 rounded-xl" onPress={() => void goToNextStep()}>
+            <Button
+              className="flex-1 rounded-xl"
+              onPress={() => void goToNextStep()}
+            >
               <Text>Continuer</Text>
             </Button>
           ) : (
@@ -874,7 +911,6 @@ const ManageVehicleScreen = () => {
           )}
         </View>
       </View>
-
     </View>
   );
 };

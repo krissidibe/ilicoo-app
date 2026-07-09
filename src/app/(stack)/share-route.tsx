@@ -28,6 +28,7 @@ import { router } from "expo-router";
 import React from "react";
 import {
   Alert,
+  BackHandler,
   Modal,
   Platform,
   ScrollView,
@@ -497,6 +498,45 @@ const ShareRouteScreen = () => {
   const previewArrival =
     activeMapField === "arrivee" && pendingPoint ? pendingPoint : arrival;
 
+  const hasDraftProgress =
+    step > 1 ||
+    selectedVehicleId !== null ||
+    departure !== null ||
+    arrival !== null ||
+    tripDateValue !== null ||
+    tripTimeValue !== null;
+
+  const handleGoBack = React.useCallback(() => {
+    if (!hasDraftProgress) {
+      router.back();
+      return;
+    }
+
+    Alert.alert(
+      "Annuler le trajet",
+      "Voulez-vous vraiment annuler la publication de ce trajet ? Vos modifications seront perdues.",
+      [
+        { text: "Non", style: "cancel" },
+        {
+          text: "Oui, annuler",
+          style: "destructive",
+          onPress: () => router.back(),
+        },
+      ],
+    );
+  }, [hasDraftProgress]);
+
+  React.useEffect(() => {
+    if (!hasDraftProgress) return;
+
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleGoBack();
+      return true;
+    });
+
+    return () => sub.remove();
+  }, [hasDraftProgress, handleGoBack]);
+
   React.useEffect(() => {
     if (!selectedVehicle) return;
     setSeats((previousSeats) =>
@@ -736,7 +776,7 @@ const ShareRouteScreen = () => {
     <View className="flex-1 bg-background">
       <View className="px-5 pb-5 bg-primary pt-safe">
         <View className="flex-row justify-between items-center pt-3 mb-4">
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={handleGoBack}>
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
           <Text className="text-lg font-bold text-white">
@@ -896,7 +936,7 @@ const ShareRouteScreen = () => {
                           className="mt-0.5 text-sm font-semibold"
                           numberOfLines={1}
                         >
-                          {departure?.address ?? "Choisir le départ sur la map"}
+                          {departure?.address ?? "Choisir un point de départ"}
                         </Text>
                       </View>
                       <Ionicons
@@ -926,7 +966,7 @@ const ShareRouteScreen = () => {
                           className="mt-0.5 text-sm font-semibold"
                           numberOfLines={1}
                         >
-                          {arrival?.address ?? "Choisir l'arrivée sur la map"}
+                          {arrival?.address ?? "Choisir une destination"}
                         </Text>
                       </View>
                       <Ionicons
@@ -956,8 +996,8 @@ const ShareRouteScreen = () => {
                   </View>
                   {durationMin > 0 && (
                     <Text className="px-2 mt-1 text-xs text-muted-foreground">
-                      Le temps ne prend pas en compte l’état réel de la
-                      circulation
+                      La durée du trajet ne prend pas en compte l’état réel de
+                      la circulation
                     </Text>
                   )}
                   <View className="flex-row gap-2 mt-2">
@@ -1116,9 +1156,10 @@ const ShareRouteScreen = () => {
                   {/* Si c'est voiture */}
                   {durationMin > 0 && selectedVehicle?.type === "CAR" && (
                     <Text className="px-2 mt-1 text-xs text-muted-foreground">
-                      C’est le prix d’une réservation pour une personne. Ce prix
+                      C’est le prix d’une réservation pour un passager. Ce prix
                       peut être différent si la réservation contient plusieurs
-                      personnes
+                      passagers. Dans ce cas, le nouveau prix sera indiqué dans
+                      la demande de réservation.
                     </Text>
                   )}
                   <View className="flex-row gap-2 mt-2">
@@ -1247,7 +1288,7 @@ const ShareRouteScreen = () => {
                     </View>
                     <View className="flex-row justify-between items-center">
                       <Text className="text-sm text-muted-foreground">
-                        Commission Ilicoo
+                        Commission Ilicoo *
                       </Text>
                       <Text className="text-sm font-semibold text-foreground">
                         {formatPriceDisplay(priceSplit.ilicoPart)}
@@ -1262,8 +1303,8 @@ const ShareRouteScreen = () => {
                       </Text>
                     </View>
                     <Text className="text-[11px] text-muted-foreground">
-                      Indicatif pour une réservation d’1 place. La commission
-                      finale s’applique au total encaissé en fin de trajet.
+                      * Indicatif pour la réservation d’une place. La commission
+                      finale s’applique au prix total encaissé en fin de trajet.
                     </Text>
                   </View>
                 </CardContent>

@@ -134,9 +134,7 @@ const AuthIndex = () => {
           </Text>
           {!showSignInMethods && (
             <Text className="mt-2 text-base text-muted-foreground">
-              Déplacez-vous facilement, ensemble ou Trouvez un trajet sûr, près
-              de chez vous ou Voyagez malin. Voyagez entre personnes de
-              confiance.
+              Déplacez vous facilement entre personnes de confiance.
             </Text>
           )}
         </Animated.View>
@@ -165,7 +163,7 @@ const AuthIndex = () => {
             <Button
               size="lg"
               variant="outline"
-              className="hidden justify-center w-full"
+              className="justify-center w-full"
               onPress={() => handleSignInMethod("google")}
             >
               <Ionicons name="logo-google" size={18} color="#EA4335" />
@@ -176,7 +174,7 @@ const AuthIndex = () => {
             <Button
               size="lg"
               variant="outline"
-              className="hidden justify-center w-full bg-black"
+              className="justify-center w-full bg-black"
               onPress={() => handleSignInMethod("apple")}
             >
               <Ionicons name="logo-apple" size={18} color="white" />
@@ -197,7 +195,7 @@ const AuthIndex = () => {
             </Button>
             <Button
               size="lg"
-              className="hidden justify-center w-full"
+              className="flex justify-center w-full"
               onPress={() => handleSignInMethod("phone")}
             >
               <Ionicons name="call-outline" size={18} color="white" />

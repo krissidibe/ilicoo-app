@@ -7,7 +7,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
-import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type PermitFormValues = {
   permitNumber: string;
@@ -53,7 +59,12 @@ const EditPermitScreen = () => {
       router.back();
     },
     onError: (error) => {
-      Alert.alert("Erreur", error instanceof Error ? error.message : "Erreur lors de la mise à jour");
+      Alert.alert(
+        "Erreur",
+        error instanceof Error
+          ? error.message
+          : "Erreur lors de la mise à jour",
+      );
     },
   });
 
@@ -81,7 +92,7 @@ const EditPermitScreen = () => {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
-          <Text className="text-lg font-bold text-white">Mon permis</Text>
+          <Text className="text-lg font-bold text-white">Mes documents</Text>
           <View className="w-6" />
         </View>
       </View>
