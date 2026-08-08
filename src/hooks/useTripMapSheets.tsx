@@ -13,7 +13,7 @@ import type {
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
-import { Linking, ScrollView, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, ScrollView, TouchableOpacity, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 
 export const getPassengerRoute = (
@@ -289,8 +289,21 @@ export function useTripMapSheets(handlers: TripMapSheetHandlers) {
                 <View className="flex-row gap-1">
                   <TouchableOpacity
                     onPress={() => {
-                      onRejectPassenger(trip.id, p.id);
-                      close();
+                      Alert.alert(
+                        "Refuser la demande",
+                        "Voulez-vous vraiment refuser cette demande de réservation ?",
+                        [
+                          { text: "Non", style: "cancel" },
+                          {
+                            text: "Oui, refuser",
+                            style: "destructive",
+                            onPress: () => {
+                              onRejectPassenger(trip.id, p.id);
+                              close();
+                            },
+                          },
+                        ],
+                      );
                     }}
                     className="p-1.5 rounded-full bg-red-500/15"
                   >
@@ -298,8 +311,20 @@ export function useTripMapSheets(handlers: TripMapSheetHandlers) {
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
-                      onAcceptPassenger(trip, p.id);
-                      close();
+                      Alert.alert(
+                        "Accepter la demande",
+                        "Voulez-vous vraiment accepter cette demande de réservation ?",
+                        [
+                          { text: "Non", style: "cancel" },
+                          {
+                            text: "Oui, accepter",
+                            onPress: () => {
+                              onAcceptPassenger(trip, p.id);
+                              close();
+                            },
+                          },
+                        ],
+                      );
                     }}
                     className="p-1.5 rounded-full bg-emerald-500/15"
                   >

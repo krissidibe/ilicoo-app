@@ -11,7 +11,11 @@ import type {
   PassengerRequest,
 } from "@/src/data/myPublishedTrips";
 import { mapRouteToMyPublishedTrip } from "@/src/lib/mappers";
-import { cn } from "@/src/lib/utils";
+import {
+  cn,
+  formatPriceDisplay,
+  getTripPriceCommissionSplit,
+} from "@/src/lib/utils";
 import { getMyRoutes } from "@/src/services/route.service";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -91,6 +95,39 @@ export const TripSheetContent = ({
           text: "Oui, annuler",
           style: "destructive",
           onPress: () => onCancelTrip(id),
+        },
+      ],
+    );
+  };
+  const handleAcceptPassengerPress = (
+    tripItem: MyPublishedTrip,
+    passengerId: string,
+  ): void => {
+    Alert.alert(
+      "Accepter la demande",
+      "Voulez-vous vraiment accepter cette demande de réservation ?",
+      [
+        { text: "Non", style: "cancel" },
+        {
+          text: "Oui, accepter",
+          onPress: () => onAccept(tripItem, passengerId),
+        },
+      ],
+    );
+  };
+  const handleRejectPassengerPress = (
+    tripId: string,
+    passengerId: string,
+  ): void => {
+    Alert.alert(
+      "Refuser la demande",
+      "Voulez-vous vraiment refuser cette demande de réservation ?",
+      [
+        { text: "Non", style: "cancel" },
+        {
+          text: "Oui, refuser",
+          style: "destructive",
+          onPress: () => onReject(tripId, passengerId),
         },
       ],
     );
@@ -194,13 +231,13 @@ export const TripSheetContent = ({
           {!isOnBoard && (
             <>
               <TouchableOpacity
-                onPress={() => onReject(t.id, p.id)}
+                onPress={() => handleRejectPassengerPress(t.id, p.id)}
                 className="p-2 rounded-full bg-red-500/15"
               >
                 <Ionicons name="close" size={18} color="#dc2626" />
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => onAccept(t, p.id)}
+                onPress={() => handleAcceptPassengerPress(t, p.id)}
                 disabled={t.availableSeats < p.seats}
                 className={cn(
                   "p-2 rounded-full",
@@ -289,7 +326,7 @@ export const TripSheetContent = ({
               Places réservées: {p.seats}
             </Text>
           </View>
-          <View className="flex-row items-center">
+          <View className="flex-row items-center mb-2">
             <MaterialCommunityIcons
               name="cash-multiple"
               size={14}
@@ -299,6 +336,41 @@ export const TripSheetContent = ({
               Prix: {p.price ?? t.price}
             </Text>
           </View>
+          {p.priceAmount != null && p.priceAmount > 0 ? (
+            <View className="gap-1.5 p-3 mt-2 rounded-xl bg-primary/5">
+              {(() => {
+                const split = getTripPriceCommissionSplit(p.priceAmount);
+                return (
+                  <>
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-xs text-muted-foreground">
+                        Prix total
+                      </Text>
+                      <Text className="text-xs font-semibold">
+                        {formatPriceDisplay(split.total)}
+                      </Text>
+                    </View>
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-xs text-muted-foreground">
+                        Commission Ilicoo
+                      </Text>
+                      <Text className="text-xs font-semibold">
+                        {formatPriceDisplay(split.ilicoPart)}
+                      </Text>
+                    </View>
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-xs text-muted-foreground">
+                        Votre part (conducteur)
+                      </Text>
+                      <Text className="text-xs font-semibold text-emerald-700">
+                        {formatPriceDisplay(split.driverPart)}
+                      </Text>
+                    </View>
+                  </>
+                );
+              })()}
+            </View>
+          ) : null}
           {t.status === "Termine" &&
             p.status === "COMPLETED" &&
             p.userId &&

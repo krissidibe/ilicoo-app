@@ -1,7 +1,10 @@
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Text } from "@/src/components/ui/text";
+import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import { getUser, updateProfile } from "@/src/services/user.service";
+import { uploadImageFile } from "@/src/services/upload.service";
+import { pickMediaFromDevice } from "@/src/utils/pickMedia";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
@@ -10,6 +13,7 @@ import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ScrollView,
   TouchableOpacity,
   View,
@@ -22,13 +26,74 @@ type PermitFormValues = {
   identityPhoto: string;
 };
 
+const DocumentUploadField = ({
+  label,
+  value,
+  onChange,
+  uploading,
+  onPick,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  uploading: boolean;
+  onPick: () => Promise<void>;
+}) => {
+  const isRemoteUrl = value.startsWith("http://") || value.startsWith("https://");
+
+  return (
+    <View>
+      <Text className="mb-1 text-xs text-muted-foreground">{label}</Text>
+      {isRemoteUrl ? (
+        <Image
+          source={{ uri: value }}
+          className="mb-2 w-full h-36 rounded-xl bg-gray-100"
+          resizeMode="cover"
+        />
+      ) : null}
+      <TouchableOpacity
+        className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
+        disabled={uploading}
+        onPress={() => void onPick()}
+      >
+        <View className="flex-row items-center">
+          <Ionicons
+            name={value ? "checkmark-circle-outline" : "cloud-upload-outline"}
+            size={18}
+            color={value ? "#10b981" : "#6366f1"}
+          />
+          <Text className="ml-2 text-sm">
+            {uploading
+              ? "Envoi en cours..."
+              : value
+                ? "Document ajouté"
+                : "Choisir un fichier"}
+          </Text>
+        </View>
+        <Text className="text-xs font-semibold text-primary">
+          {value ? "Remplacer" : "Uploader"}
+        </Text>
+      </TouchableOpacity>
+      {value ? (
+        <TouchableOpacity onPress={() => onChange("")} className="mt-2">
+          <Text className="text-xs text-red-500">Retirer le document</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+};
+
 const EditPermitScreen = () => {
   const { data: user, isLoading } = useQuery(getUser());
   const queryClient = useQueryClient();
+  const [uploadingField, setUploadingField] = React.useState<
+    keyof PermitFormValues | null
+  >(null);
 
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors, isDirty },
     reset,
   } = useForm<PermitFormValues>({
@@ -51,11 +116,40 @@ const EditPermitScreen = () => {
     }
   }, [user, reset]);
 
+  const handlePickDocument = async (
+    field: keyof PermitFormValues,
+  ): Promise<void> => {
+    const picked = await pickMediaFromDevice();
+    if (!picked?.uri) {
+      return;
+    }
+    setUploadingField(field);
+    try {
+      const uploadedUrl = await uploadImageFile(picked.uri);
+      setValue(field, uploadedUrl, {
+        shouldDirty: true,
+        shouldValidate: true,
+        shouldTouch: true,
+      });
+    } catch (error) {
+      Alert.alert(
+        "Erreur",
+        error instanceof Error ? error.message : "Impossible d'envoyer le fichier",
+      );
+    } finally {
+      setUploadingField(null);
+    }
+  };
+
+  const hasDocuments = Boolean(
+    user?.permitPhoto && user?.identityPhoto,
+  );
+
   const updateMutation = useMutation({
     mutationFn: updateProfile,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user"] });
-      Alert.alert("Succès", "Vos informations de permis ont été mises à jour.");
+      Alert.alert("Succès", "Vos documents ont été enregistrés.");
       router.back();
     },
     onError: (error) => {
@@ -102,8 +196,29 @@ const EditPermitScreen = () => {
         contentContainerClassName="px-5 pb-28 pt-5"
         showsVerticalScrollIndicator={false}
       >
+        <View className="flex-row gap-2 items-center p-3 mb-4 rounded-xl border border-primary/20 bg-primary/5">
+          {user?.isVerified ? (
+            <>
+              <VerifiedBadge size={18} />
+              <Text className="flex-1 text-sm font-medium text-primary">
+                Profil vérifié par l&apos;équipe Ilicoo
+              </Text>
+            </>
+          ) : hasDocuments ? (
+            <Text className="flex-1 text-sm text-amber-700">
+              Documents envoyés — validation administrateur en cours
+            </Text>
+          ) : (
+            <Text className="flex-1 text-sm text-muted-foreground">
+              Ajoutez votre permis et votre pièce d&apos;identité pour être
+              vérifié.
+            </Text>
+          )}
+        </View>
+
         <Text className="mb-4 text-sm text-muted-foreground">
-          Renseignez vos informations de permis de conduire
+          Uploadez vos documents depuis l&apos;appareil photo, la photothèque
+          ou les fichiers du téléphone.
         </Text>
 
         <View className="gap-4">
@@ -133,36 +248,13 @@ const EditPermitScreen = () => {
             control={control}
             name="permitPhoto"
             render={({ field: { value, onChange } }) => (
-              <View>
-                <Text className="mb-1 text-xs text-muted-foreground">
-                  Photo de permis (Recto)
-                </Text>
-                <TouchableOpacity
-                  className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
-                  onPress={() => {
-                    if (value) onChange("");
-                    else onChange("permis_photo_01.jpg");
-                  }}
-                >
-                  <View className="flex-row items-center">
-                    <Ionicons
-                      name={
-                        value
-                          ? "checkmark-circle-outline"
-                          : "cloud-upload-outline"
-                      }
-                      size={18}
-                      color={value ? "#10b981" : "#6366f1"}
-                    />
-                    <Text className="ml-2 text-sm">
-                      {value ? value : "Uploader votre photo"}
-                    </Text>
-                  </View>
-                  <Text className="text-xs font-semibold text-primary">
-                    {value ? "Retirer" : "Uploader"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <DocumentUploadField
+                label="Photo de permis (Recto)"
+                value={value}
+                onChange={onChange}
+                uploading={uploadingField === "permitPhoto"}
+                onPick={() => handlePickDocument("permitPhoto")}
+              />
             )}
           />
 
@@ -170,36 +262,13 @@ const EditPermitScreen = () => {
             control={control}
             name="permitPhotoBack"
             render={({ field: { value, onChange } }) => (
-              <View>
-                <Text className="mb-1 text-xs text-muted-foreground">
-                  Photo de permis (Verso)
-                </Text>
-                <TouchableOpacity
-                  className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
-                  onPress={() => {
-                    if (value) onChange("");
-                    else onChange("permis_verso_01.jpg");
-                  }}
-                >
-                  <View className="flex-row items-center">
-                    <Ionicons
-                      name={
-                        value
-                          ? "checkmark-circle-outline"
-                          : "cloud-upload-outline"
-                      }
-                      size={18}
-                      color={value ? "#10b981" : "#6366f1"}
-                    />
-                    <Text className="ml-2 text-sm">
-                      {value ? value : "Uploader votre photo"}
-                    </Text>
-                  </View>
-                  <Text className="text-xs font-semibold text-primary">
-                    {value ? "Retirer" : "Uploader"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <DocumentUploadField
+                label="Photo de permis (Verso)"
+                value={value}
+                onChange={onChange}
+                uploading={uploadingField === "permitPhotoBack"}
+                onPick={() => handlePickDocument("permitPhotoBack")}
+              />
             )}
           />
 
@@ -207,36 +276,13 @@ const EditPermitScreen = () => {
             control={control}
             name="identityPhoto"
             render={({ field: { value, onChange } }) => (
-              <View>
-                <Text className="mb-1 text-xs text-muted-foreground">
-                  Photo d'identité
-                </Text>
-                <TouchableOpacity
-                  className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
-                  onPress={() => {
-                    if (value) onChange("");
-                    else onChange("identity_photo_01.jpg");
-                  }}
-                >
-                  <View className="flex-row items-center">
-                    <Ionicons
-                      name={
-                        value
-                          ? "checkmark-circle-outline"
-                          : "cloud-upload-outline"
-                      }
-                      size={18}
-                      color={value ? "#10b981" : "#6366f1"}
-                    />
-                    <Text className="ml-2 text-sm">
-                      {value ? value : "Uploader votre photo"}
-                    </Text>
-                  </View>
-                  <Text className="text-xs font-semibold text-primary">
-                    {value ? "Retirer" : "Uploader"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <DocumentUploadField
+                label="Photo d'identité"
+                value={value}
+                onChange={onChange}
+                uploading={uploadingField === "identityPhoto"}
+                onPick={() => handlePickDocument("identityPhoto")}
+              />
             )}
           />
         </View>

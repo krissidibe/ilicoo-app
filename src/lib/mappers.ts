@@ -199,6 +199,7 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
         ? new Date(pDepartureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
         : (r.departureAt ? new Date(r.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—"),
       price: formatPriceDisplay(passengerPrice),
+      priceAmount: passengerPrice,
       routeCoordinates: [
         { latitude: pPickupLat, longitude: pPickupLng },
         { latitude: pDropLat, longitude: pDropLng },

@@ -5,7 +5,7 @@ import {
   AvatarImage,
 } from "@/src/components/ui/avatar";
 import { Text } from "@/src/components/ui/text";
-import { AvatarWithVerifiedOutline } from "@/src/components/VerifiedBadge";
+import { AvatarWithVerifiedOutline, VerifiedBadge } from "@/src/components/VerifiedBadge";
 import { authClient } from "@/src/lib/auth-client";
 import { getUserRatings } from "@/src/services/rating.service";
 import { getUser } from "@/src/services/user.service";
@@ -128,6 +128,18 @@ const Setting = () => {
                     >
                       {user?.name ?? "Utilisateur"}
                     </Text>
+                    {user?.isVerified ? (
+                      <View className="flex-row gap-1.5 items-center mt-1">
+                        <VerifiedBadge size={14} />
+                        <Text className="text-xs font-semibold text-white/90">
+                          Profil vérifié
+                        </Text>
+                      </View>
+                    ) : user?.permitPhoto && user?.identityPhoto ? (
+                      <Text className="mt-1 text-xs text-amber-200">
+                        Documents en attente de validation
+                      </Text>
+                    ) : null}
                     {ratingsData && ratingsData.totalRatings > 0 ? (
                       <View className="flex-row flex-wrap gap-2 items-center mt-2">
                         <View className="flex-row items-center px-2.5 py-1 rounded-full bg-white/20">
@@ -234,7 +246,7 @@ const Setting = () => {
                 subtitle="Ajouter ou modifier vos véhicules"
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push("/(stack)/manage-vehicle" as any);
+                  router.push("/(stack)/my-vehicles" as any);
                 }}
               />
             </Animated.View>

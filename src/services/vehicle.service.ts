@@ -73,3 +73,44 @@ export const setDefaultVehicle = async (vehicleId: string) => {
   }
   return json.data;
 };
+
+export type UpdateVehicleParams = {
+  type?: "voiture" | "moto";
+  vehicleName?: string;
+  year?: string;
+  plateNumber?: string;
+  color?: string;
+  photo?: string;
+  maximumPassenger?: number;
+  default?: boolean;
+};
+
+export const updateVehicle = async (
+  vehicleId: string,
+  params: UpdateVehicleParams,
+) => {
+  const res = await apiFetch(`vehicules/${vehicleId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      ...(params.type != null
+        ? { type: params.type === "moto" ? "MOTORCYCLE" : "CAR" }
+        : {}),
+      ...(params.vehicleName != null ? { vehicleName: params.vehicleName } : {}),
+      ...(params.year !== undefined ? { year: params.year ?? null } : {}),
+      ...(params.plateNumber !== undefined
+        ? { plateNumber: params.plateNumber ?? null }
+        : {}),
+      ...(params.color !== undefined ? { color: params.color ?? null } : {}),
+      ...(params.photo !== undefined ? { photo: params.photo ?? null } : {}),
+      ...(params.maximumPassenger != null
+        ? { maximumPassenger: params.maximumPassenger }
+        : {}),
+      ...(params.default != null ? { default: params.default } : {}),
+    }),
+  });
+  const json = res as { success: boolean; data?: VehicleApi };
+  if (!json.success || json.data === undefined) {
+    throw new Error((json as { error?: string }).error ?? "Erreur API");
+  }
+  return json.data;
+};

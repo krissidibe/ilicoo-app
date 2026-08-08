@@ -5,11 +5,11 @@ import { cn } from "@/src/lib/utils";
 import { queryKeys } from "@/src/services/queryKeys";
 import { uploadImageFile } from "@/src/services/upload.service";
 import { getUser } from "@/src/services/user.service";
-import { createVehicle } from "@/src/services/vehicle.service";
+import { createVehicle, getVehicules, updateVehicle } from "@/src/services/vehicle.service";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
@@ -65,13 +65,23 @@ type VehicleFormValues = {
 };
 
 const ManageVehicleScreen = () => {
-  const { data: currentUser } = useQuery(getUser());
-  const hasPermitInfo = !!(
-    currentUser?.permitNumber ||
-    currentUser?.permitPhoto ||
-    currentUser?.permitPhotoBack ||
-    currentUser?.identityPhoto
+  const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
+  const isEditMode = Boolean(vehicleId);
+  const { data: vehicles = [] } = useQuery(getVehicules());
+  const editingVehicle = React.useMemo(
+    () => vehicles.find((vehicle) => vehicle.id === vehicleId),
+    [vehicleId, vehicles],
   );
+
+  const { data: currentUser } = useQuery(getUser());
+  const hasPermitInfo =
+    isEditMode ||
+    !!(
+      currentUser?.permitNumber ||
+      currentUser?.permitPhoto ||
+      currentUser?.permitPhotoBack ||
+      currentUser?.identityPhoto
+    );
 
   const [currentStep, setCurrentStep] = React.useState<number>(0);
   const [furthestUnlockedStep, setFurthestUnlockedStep] =
@@ -123,6 +133,7 @@ const ManageVehicleScreen = () => {
     setValue,
     trigger,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<VehicleFormValues>({
     defaultValues: {
@@ -168,10 +179,13 @@ const ManageVehicleScreen = () => {
       setValue("maximumPassenger", 0);
       return;
     }
+    if (isEditMode) {
+      return;
+    }
     setValue("maximumPassenger", vehicleType === "moto" ? 1 : 4, {
       shouldValidate: true,
     });
-  }, [setValue, vehicleType]);
+  }, [isEditMode, setValue, vehicleType]);
 
   const fieldsByStep: (keyof VehicleFormValues)[][] = isMoto
     ? [
@@ -240,9 +254,44 @@ const ManageVehicleScreen = () => {
     );
   }, []);
 
+  React.useEffect(() => {
+    if (!editingVehicle) {
+      return;
+    }
+    reset({
+      vehicleType: editingVehicle.type === "MOTORCYCLE" ? "moto" : "voiture",
+      maximumPassenger: editingVehicle.maximumPassenger,
+      vehicleName: editingVehicle.name,
+      year: editingVehicle.year ?? "",
+      plateNumber: editingVehicle.plateNumber ?? "",
+      color: editingVehicle.color ?? "",
+      licenseNumber: "",
+      licensePhoto: "",
+      permitPhotoBack: "",
+      identityPhoto: "",
+    });
+    setVehiclePhotoUri(editingVehicle.photo);
+    setCurrentStep(0);
+    setFurthestUnlockedStep(steps.length - 1);
+  }, [editingVehicle, reset, steps.length]);
+
   const queryClient = useQueryClient();
   const createMutation = useMutation({
     mutationFn: createVehicle,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicules.all });
+      router.back();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Parameters<typeof updateVehicle>[1];
+    }) => updateVehicle(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.vehicules.all });
       router.back();
@@ -254,7 +303,25 @@ const ManageVehicleScreen = () => {
     try {
       let photo: string | undefined;
       if (vehiclePhotoUri) {
-        photo = await uploadImageFile(vehiclePhotoUri);
+        photo =
+          vehiclePhotoUri.startsWith("http") && isEditMode
+            ? vehiclePhotoUri
+            : await uploadImageFile(vehiclePhotoUri);
+      }
+      if (isEditMode && vehicleId) {
+        await updateMutation.mutateAsync({
+          id: String(vehicleId),
+          payload: {
+            type: values.vehicleType as "voiture" | "moto",
+            vehicleName: values.vehicleName,
+            year: isMoto ? undefined : values.year,
+            plateNumber: isMoto ? undefined : values.plateNumber,
+            color: values.color || undefined,
+            photo,
+            maximumPassenger: values.maximumPassenger,
+          },
+        });
+        return;
       }
       await createMutation.mutateAsync({
         type: values.vehicleType as "voiture" | "moto",
@@ -288,7 +355,7 @@ const ManageVehicleScreen = () => {
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
           <Text className="text-lg font-bold text-white">
-            Ajouter un véhicule
+            {isEditMode ? "Modifier le véhicule" : "Ajouter un véhicule"}
           </Text>
           <TouchableOpacity className="opacity-0" disabled>
             <Ionicons name="chevron-back" size={24} color="white" />
@@ -900,12 +967,20 @@ const ManageVehicleScreen = () => {
             <Button
               className="flex-1 rounded-xl"
               onPress={onSubmit}
-              disabled={isSending || createMutation.isPending}
+              disabled={
+                isSending || createMutation.isPending || updateMutation.isPending
+              }
             >
-              {isSending || createMutation.isPending ? (
+              {isSending ||
+              createMutation.isPending ||
+              updateMutation.isPending ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text>Ajouter le véhicule</Text>
+                <Text>
+                  {isEditMode
+                    ? "Enregistrer les modifications"
+                    : "Ajouter le véhicule"}
+                </Text>
               )}
             </Button>
           )}

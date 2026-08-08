@@ -30,6 +30,7 @@ export type PassengerRequest = {
   date?: string;
   time?: string;
   price?: string;
+  priceAmount?: number;
   distanceKm?: number;
   routeCoordinates?: { latitude: number; longitude: number }[];
   ratedByDriver?: boolean;
