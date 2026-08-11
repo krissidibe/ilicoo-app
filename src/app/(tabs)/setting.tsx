@@ -135,11 +135,18 @@ const Setting = () => {
                           Profil vérifié
                         </Text>
                       </View>
-                    ) : user?.permitPhoto && user?.identityPhoto ? (
+                    ) : user?.identityPhoto && user?.image ? (
                       <Text className="mt-1 text-xs text-amber-200">
                         Documents en attente de validation
                       </Text>
-                    ) : null}
+                    ) : (
+                      <View className="flex-row gap-1.5 items-center mt-1">
+                        <Ionicons name="close-circle" size={14} color="#fecaca" />
+                        <Text className="text-xs font-semibold text-red-200">
+                          Profil non vérifié
+                        </Text>
+                      </View>
+                    )}
                     {ratingsData && ratingsData.totalRatings > 0 ? (
                       <View className="flex-row flex-wrap gap-2 items-center mt-2">
                         <View className="flex-row items-center px-2.5 py-1 rounded-full bg-white/20">

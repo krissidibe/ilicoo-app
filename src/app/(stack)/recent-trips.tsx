@@ -5,6 +5,7 @@ import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
+import { compareDepartureAsc, compareDepartureDesc, vehicleTypeLabel } from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { createRating } from "@/src/services/rating.service";
 import {
@@ -112,6 +113,7 @@ const TripRatingSection = ({
 
 const RecentTripsScreen = () => {
   const [activeTab, setActiveTab] = React.useState<TripTab>("Avenir");
+  const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const { open, close } = useBottomSheetStore();
   const queryClient = useQueryClient();
@@ -132,8 +134,13 @@ const RecentTripsScreen = () => {
 
   const filteredTrips = React.useMemo(() => {
     const statuses = activeTab === "Avenir" ? AVENIR_STATUSES : PASSE_STATUSES;
-    return allTrips.filter((trip) => statuses.includes(trip.status));
-  }, [allTrips, activeTab]);
+    const filtered = allTrips.filter((trip) => statuses.includes(trip.status));
+    return [...filtered].sort((a, b) =>
+      sortOrder === "asc"
+        ? compareDepartureAsc(a, b)
+        : compareDepartureDesc(a, b),
+    );
+  }, [allTrips, activeTab, sortOrder]);
 
   const cancelMutation = useMutation({
     mutationFn: cancelMyTrip,
@@ -312,6 +319,24 @@ const RecentTripsScreen = () => {
             </View>
           </View>
 
+          {(trip.vehicleName || trip.vehicleType) && (
+            <View className="flex-row items-center px-3 py-2 mt-3 rounded-xl border border-gray-300 bg-gray-50">
+              <MaterialCommunityIcons
+                name={
+                  trip.vehicleType === "MOTORCYCLE"
+                    ? "motorbike"
+                    : "car-side"
+                }
+                size={16}
+                color="#6366f1"
+              />
+              <Text className="ml-2 text-sm font-medium text-foreground">
+                {vehicleTypeLabel(trip.vehicleType)}
+                {trip.vehicleName ? ` • ${trip.vehicleName}` : ""}
+              </Text>
+            </View>
+          )}
+
           {trip.pickupLat != null && trip.dropLat != null && (
             <TouchableOpacity
               onPress={() => {
@@ -356,7 +381,7 @@ const RecentTripsScreen = () => {
                       } as any)
                     }
                   >
-                    <View className="flex-row items-center gap-1">
+                    <View className="flex-row gap-1 items-center">
                       <Text className="text-sm font-semibold text-foreground">
                         {trip.driver.name}
                       </Text>
@@ -584,6 +609,24 @@ const RecentTripsScreen = () => {
             </TouchableOpacity>
           ))}
         </View>
+
+        <TouchableOpacity
+          onPress={() =>
+            setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+          }
+          className="flex-row gap-2 justify-center items-center py-2 mt-3 rounded-xl bg-white/10"
+        >
+          <MaterialCommunityIcons
+            name={sortOrder === "asc" ? "sort-clock-ascending" : "sort-clock-descending"}
+            size={16}
+            color="white"
+          />
+          <Text className="text-xs font-semibold text-white">
+            {sortOrder === "asc"
+              ? "Tri : départ le plus tôt"
+              : "Tri : départ le plus tard"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView

@@ -1792,7 +1792,7 @@ const SearchRouteScreen = () => {
                     </Text>
                   </View>
                   <TouchableOpacity
-                    onPress={() => setSeats((s) => Math.min(10, s + 1))}
+                    onPress={() => setSeats((s) => Math.min(4, s + 1))}
                     className="justify-center items-center rounded-full border-2 size-12 border-primary bg-primary/10"
                   >
                     <Ionicons name="add" size={24} color="#6366f1" />

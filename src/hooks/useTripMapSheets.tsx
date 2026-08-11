@@ -311,20 +311,19 @@ export function useTripMapSheets(handlers: TripMapSheetHandlers) {
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
-                      Alert.alert(
-                        "Accepter la demande",
-                        "Voulez-vous vraiment accepter cette demande de réservation ?",
-                        [
-                          { text: "Non", style: "cancel" },
-                          {
-                            text: "Oui, accepter",
-                            onPress: () => {
-                              onAcceptPassenger(trip, p.id);
-                              close();
-                            },
+                      const message = p.isVerified
+                        ? "Voulez-vous accepter cette demande de réservation ?"
+                        : `Le profil de « ${p.name} » n'est pas vérifié, souhaitez-vous quand même accepter cette demande de réservation ?`;
+                      Alert.alert("Accepter la demande", message, [
+                        { text: "Non", style: "cancel" },
+                        {
+                          text: "Oui, accepter",
+                          onPress: () => {
+                            onAcceptPassenger(trip, p.id);
+                            close();
                           },
-                        ],
-                      );
+                        },
+                      ]);
                     }}
                     className="p-1.5 rounded-full bg-emerald-500/15"
                   >

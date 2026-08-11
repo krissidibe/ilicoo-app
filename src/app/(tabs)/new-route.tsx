@@ -10,6 +10,13 @@ import { Text } from "@/src/components/ui/text";
 import type { MyPublishedTrip } from "@/src/data/myPublishedTrips";
 import { useTripMapSheets } from "@/src/hooks/useTripMapSheets";
 import { mapRouteToMyPublishedTrip, mapVehicleToUi } from "@/src/lib/mappers";
+import {
+  compareDepartureAsc,
+  compareDepartureDesc,
+  formatTimeFr,
+  getRouteArrivalAt,
+  isArrivalDue,
+} from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { getPaymentsSummary } from "@/src/services/payment.service";
 import { queryKeys } from "@/src/services/queryKeys";
@@ -85,6 +92,7 @@ const Setting = () => {
   const [commissionPopupVisible, setCommissionPopupVisible] = useState(false);
   /** Afficher uniquement les trajets ayant au moins une demande PENDING */
   const [showPendingOnly, setShowPendingOnly] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const { data: routesData, isLoading: isLoadingRoutes } = useQuery({
     ...getMyRoutes(),
@@ -135,13 +143,16 @@ const Setting = () => {
     [trips],
   );
 
-  const tripsFiltered = useMemo(
-    () =>
-      showPendingOnly
-        ? trips.filter((t) => t.passengers.some((p) => p.status === "PENDING"))
-        : trips,
-    [trips, showPendingOnly],
-  );
+  const tripsFiltered = useMemo(() => {
+    const base = showPendingOnly
+      ? trips.filter((t) => t.passengers.some((p) => p.status === "PENDING"))
+      : trips;
+    return [...base].sort((a, b) =>
+      sortOrder === "asc"
+        ? compareDepartureAsc(a, b)
+        : compareDepartureDesc(a, b),
+    );
+  }, [trips, showPendingOnly, sortOrder]);
 
   useEffect(() => {
     if (totalPendingRequests === 0) {
@@ -230,6 +241,21 @@ const Setting = () => {
   };
 
   const handleCompleteTrip = (tripId: string): void => {
+    const trip = trips.find((t) => t.id === tripId);
+    if (
+      trip?.departureAt &&
+      !isArrivalDue(trip.departureAt, trip.durationMin ?? 0)
+    ) {
+      const arrivalAt = getRouteArrivalAt(
+        trip.departureAt,
+        trip.durationMin ?? 0,
+      );
+      Alert.alert(
+        "Trop tôt",
+        `Le trajet vient d'être démarré. Il ne peut être terminé qu'à partir de ${arrivalAt ? formatTimeFr(arrivalAt) : "—"} (heure d'arrivée selon Maps).`,
+      );
+      return;
+    }
     updateRouteStatusMutation.mutate({ routeId: tripId, status: "COMPLETED" });
   };
 
@@ -466,6 +492,27 @@ const Setting = () => {
                       />
                     </TouchableOpacity>
                   ) : null}
+                  <TouchableOpacity
+                    onPress={() =>
+                      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+                    }
+                    className="flex-row gap-2 justify-center items-center p-3 mb-4 rounded-xl border border-gray-200 bg-white"
+                  >
+                    <MaterialCommunityIcons
+                      name={
+                        sortOrder === "asc"
+                          ? "sort-clock-ascending"
+                          : "sort-clock-descending"
+                      }
+                      size={18}
+                      color="#6366f1"
+                    />
+                    <Text className="text-sm font-medium text-foreground">
+                      {sortOrder === "asc"
+                        ? "Tri : départ le plus tôt"
+                        : "Tri : départ le plus tard"}
+                    </Text>
+                  </TouchableOpacity>
                   {totalPendingRequests > 0 ? (
                     <TouchableOpacity
                       activeOpacity={0.88}

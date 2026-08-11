@@ -31,7 +31,9 @@ export const PassengerTripDetailBody = ({ trip }: Props) => {
   const cancelMutation = useMutation({
     mutationFn: cancelMyTrip,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.routePassengers.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.routePassengers.all,
+      });
       Alert.alert("Réservation annulée", "Votre demande a bien été annulée.");
     },
     onError: (e) => {
@@ -138,6 +140,24 @@ export const PassengerTripDetailBody = ({ trip }: Props) => {
             </Text>
           </View>
 
+          {(trip.vehicleName || trip.vehicleType) && (
+            <View className="flex-row items-center px-3 py-2 mt-3 rounded-xl border border-gray-300 bg-gray-50">
+              <MaterialCommunityIcons
+                name={
+                  trip.vehicleType === "MOTORCYCLE"
+                    ? "motorbike"
+                    : "car-side"
+                }
+                size={16}
+                color="#6366f1"
+              />
+              <Text className="ml-2 text-sm font-medium text-foreground">
+                {trip.vehicleType === "MOTORCYCLE" ? "Moto" : "Voiture"}
+                {trip.vehicleName ? ` • ${trip.vehicleName}` : ""}
+              </Text>
+            </View>
+          )}
+
           {hasDriverCoords && (
             <TouchableOpacity
               onPress={() => setMapModalVisible(true)}
@@ -168,7 +188,7 @@ export const PassengerTripDetailBody = ({ trip }: Props) => {
                   <Text className="text-xs text-muted-foreground">
                     Chauffeur
                   </Text>
-                  <View className="flex-row items-center gap-1 flex-wrap">
+                  <View className="flex-row flex-wrap gap-1 items-center">
                     <Text className="text-sm font-semibold text-foreground">
                       {trip.driver.name}
                     </Text>
@@ -214,10 +234,8 @@ export const PassengerTripDetailBody = ({ trip }: Props) => {
                 <Text
                   className={cn(
                     "text-xs font-semibold",
-                    myInfo.passengerStatus === "Confirmé" &&
-                      "text-emerald-700",
-                    myInfo.passengerStatus === "En attente" &&
-                      "text-amber-700",
+                    myInfo.passengerStatus === "Confirmé" && "text-emerald-700",
+                    myInfo.passengerStatus === "En attente" && "text-amber-700",
                     myInfo.passengerStatus === "Refusé" && "text-red-700",
                     myInfo.passengerStatus === "Annulé" && "text-gray-700",
                     myInfo.passengerStatus === "Terminé" && "text-blue-700",

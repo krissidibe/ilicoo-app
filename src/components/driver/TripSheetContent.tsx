@@ -10,6 +10,11 @@ import type {
   MyPublishedTrip,
   PassengerRequest,
 } from "@/src/data/myPublishedTrips";
+import {
+  formatTimeFr,
+  getRouteArrivalAt,
+  isArrivalDue,
+} from "@/src/lib/tripSchedule";
 import { mapRouteToMyPublishedTrip } from "@/src/lib/mappers";
 import {
   cn,
@@ -101,19 +106,18 @@ export const TripSheetContent = ({
   };
   const handleAcceptPassengerPress = (
     tripItem: MyPublishedTrip,
-    passengerId: string,
+    passenger: PassengerRequest,
   ): void => {
-    Alert.alert(
-      "Accepter la demande",
-      "Voulez-vous vraiment accepter cette demande de réservation ?",
-      [
-        { text: "Non", style: "cancel" },
-        {
-          text: "Oui, accepter",
-          onPress: () => onAccept(tripItem, passengerId),
-        },
-      ],
-    );
+    const message = passenger.isVerified
+      ? "Voulez-vous accepter cette demande de réservation ?"
+      : `Le profil de « ${passenger.name} » n'est pas vérifié, souhaitez-vous quand même accepter cette demande de réservation ?`;
+    Alert.alert("Accepter la demande", message, [
+      { text: "Non", style: "cancel" },
+      {
+        text: "Oui, accepter",
+        onPress: () => onAccept(tripItem, passenger.id),
+      },
+    ]);
   };
   const handleRejectPassengerPress = (
     tripId: string,
@@ -237,7 +241,7 @@ export const TripSheetContent = ({
                 <Ionicons name="close" size={18} color="#dc2626" />
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => handleAcceptPassengerPress(t, p.id)}
+                onPress={() => handleAcceptPassengerPress(t, p)}
                 disabled={t.availableSeats < p.seats}
                 className={cn(
                   "p-2 rounded-full",
@@ -375,7 +379,7 @@ export const TripSheetContent = ({
             p.status === "COMPLETED" &&
             p.userId &&
             (!p.ratedByDriver || !p.reportedByDriver) && (
-              <View className="gap-2 mt-3 pt-3 border-t border-gray-100">
+              <View className="gap-2 pt-3 mt-3 border-t border-gray-100">
                 {!p.ratedByDriver && (
                   <TouchableOpacity
                     onPress={() => {
@@ -605,7 +609,12 @@ export const TripSheetContent = ({
               <Button
                 className="flex-1 rounded-xl"
                 onPress={() => onCompleteTrip(trip.id)}
-                disabled={isRouteStatusPending}
+                disabled={
+                  isRouteStatusPending ||
+                  (trip.departureAt
+                    ? !isArrivalDue(trip.departureAt, trip.durationMin ?? 0)
+                    : false)
+                }
               >
                 <Text>Terminer le trajet</Text>
               </Button>

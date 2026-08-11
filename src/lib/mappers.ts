@@ -80,8 +80,8 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
   const myFrom = rp.pickupAddress ?? route?.pickupAddress ?? "—";
   const myTo = rp.dropAddress ?? route?.dropAddress ?? "—";
   const myDate = rp.departureAt
-    ? formatDateShort(rp.departureAt)
-    : formatDate(route?.departureAt ?? rp.createdAt);
+    ? formatDepartureLabel(rp.departureAt)
+    : formatDepartureLabel(route?.departureAt ?? rp.createdAt);
   const myTime = rp.departureAt
     ? new Date(rp.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
     : (route?.departureAt ? new Date(route.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—");
@@ -102,15 +102,25 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
       ?.filter((p) => p.userId !== (currentUserId ?? rp.userId))
       ?.map((p) => p.user?.name ?? "Passager")
       ?? [];
+  const routeVehicleType: "CAR" | "MOTORCYCLE" =
+    route?.vehicleType === "MOTORCYCLE" || route?.vehicle?.type === "MOTORCYCLE"
+      ? "MOTORCYCLE"
+      : "CAR";
+  const vehicleName =
+    route?.vehicle?.name ??
+    (routeVehicleType === "MOTORCYCLE" ? "Moto" : "Voiture");
   return {
     id: rp.routeID,
     routePassengerId: rp.id,
     from: route?.pickupAddress ?? "—",
     to: route?.dropAddress ?? "—",
-    date: formatDate(route?.departureAt ?? rp.createdAt),
+    date: formatDepartureLabel(route?.departureAt ?? rp.createdAt),
     price: myPrice,
     status,
     distanceKm: route?.distanceKm,
+    departureAt: route?.departureAt ?? null,
+    vehicleName,
+    vehicleType: routeVehicleType,
     driver:
       driver &&
       (status === "Termine" ||
@@ -212,7 +222,7 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
     id: r.id,
     from: r.pickupAddress,
     to: r.dropAddress,
-    date: r.departureAt ? formatDateShort(r.departureAt) : "—",
+    date: r.departureAt ? formatDepartureLabel(r.departureAt) : "—",
     time: r.departureAt
       ? new Date(r.departureAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
       : "—",
@@ -221,6 +231,9 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
     availableSeats: r.availableSeats,
     totalSeats,
     vehicleName,
+    vehicleType: routeVehicleType,
+    departureAt: r.departureAt,
+    durationMin: r.durationMin,
     passengers,
     pickupLat: r.pickupLat,
     pickupLng: r.pickupLng,

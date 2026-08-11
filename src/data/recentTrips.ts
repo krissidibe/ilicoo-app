@@ -33,6 +33,9 @@ export type RecentTrip = {
   price: string;
   status: TripStatus;
   distanceKm?: number;
+  departureAt?: string | null;
+  vehicleName?: string;
+  vehicleType?: "CAR" | "MOTORCYCLE";
   driver?: DriverInfo;
   pickupLat?: number;
   pickupLng?: number;

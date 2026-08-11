@@ -5,12 +5,13 @@ import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
+import { compareDepartureDesc, vehicleTypeLabel } from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { getNotifications } from "@/src/services/notification.service";
-import { getReportedRouteIds } from "@/src/services/report.service";
 import { getPaymentsSummary } from "@/src/services/payment.service";
 import { queryKeys } from "@/src/services/queryKeys";
 import { createRating, getRatedTripIds } from "@/src/services/rating.service";
+import { getReportedRouteIds } from "@/src/services/report.service";
 import {
   cancelMyTrip,
   getRoutePassengers,
@@ -26,12 +27,16 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  TextInput,
+  Keyboard,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import Animated, { FadeIn, FadeInDown, ZoomIn } from "react-native-reanimated";
@@ -121,7 +126,9 @@ const HomeScreen = () => {
     mutationFn: createRating,
     onSuccess: () => {
       Alert.alert("Merci", "Votre note a été enregistrée !");
-      queryClient.invalidateQueries({ queryKey: queryKeys.routePassengers.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.routePassengers.all,
+      });
     },
     onError: (e) => {
       Alert.alert(
@@ -177,6 +184,7 @@ const HomeScreen = () => {
 
   const displayedTrips: RecentTrip[] = (routePassengersData ?? [])
     .map((rp) => mapRoutePassengerToRecentTrip(rp, currentUser?.id))
+    .sort(compareDepartureDesc)
     .slice(0, 3);
 
   useEffect(() => {
@@ -198,9 +206,7 @@ const HomeScreen = () => {
         ...ratedIds.map(String),
         ...reportedIds.map(String),
       ]);
-      const unrated = completedUnrated.find(
-        (t) => !excluded.has(String(t.id)),
-      );
+      const unrated = completedUnrated.find((t) => !excluded.has(String(t.id)));
       if (unrated && !ratingPopupTripRef.current) {
         setRatingPopupTrip(unrated);
         setRatingPopupStars(0);
@@ -381,6 +387,24 @@ const HomeScreen = () => {
             )}
           </View>
 
+          {(trip.vehicleName || trip.vehicleType) && (
+            <View className="flex-row items-center px-3 py-2 mt-3 rounded-xl border border-gray-300 bg-gray-50">
+              <MaterialCommunityIcons
+                name={
+                  trip.vehicleType === "MOTORCYCLE"
+                    ? "motorbike"
+                    : "car-side"
+                }
+                size={16}
+                color="#6366f1"
+              />
+              <Text className="ml-2 text-sm font-medium text-foreground">
+                {vehicleTypeLabel(trip.vehicleType)}
+                {trip.vehicleName ? ` • ${trip.vehicleName}` : ""}
+              </Text>
+            </View>
+          )}
+
           {trip.pickupLat != null && trip.dropLat != null && (
             <TouchableOpacity
               onPress={() => {
@@ -425,7 +449,7 @@ const HomeScreen = () => {
                       } as any)
                     }
                   >
-                    <View className="flex-row items-center gap-1">
+                    <View className="flex-row gap-1 items-center">
                       <Text className="text-sm font-semibold text-foreground">
                         {trip.driver.name}
                       </Text>
@@ -649,8 +673,17 @@ const HomeScreen = () => {
         animationType="fade"
         onRequestClose={() => {}}
       >
-        <View className="flex-1 justify-center items-center bg-black/50">
-          <View className="p-6 w-[90%] max-w-md bg-white rounded-3xl items-center">
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            className="flex-1 justify-center items-center bg-black/50"
+          >
+            <ScrollView
+              contentContainerClassName="flex-grow justify-center items-center px-5 py-8"
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View className="p-6 w-full max-w-md bg-white rounded-3xl items-center">
             <MaterialCommunityIcons
               name="check-circle-outline"
               size={52}
@@ -721,7 +754,7 @@ const HomeScreen = () => {
               </>
             ) : (
               <>
-                <View className="flex-row flex-wrap justify-center items-center gap-1 mb-5 px-2">
+                <View className="flex-row flex-wrap gap-1 justify-center items-center px-2 mb-5">
                   <Text className="text-sm text-center text-muted-foreground">
                     Comment était votre trajet avec
                   </Text>
@@ -751,7 +784,10 @@ const HomeScreen = () => {
                 {!ratingPopupSubmitted ? (
                   <TouchableOpacity
                     onPress={() => {
-                      if (!ratingPopupTrip?.driver?.id || ratingPopupStars < 1) {
+                      if (
+                        !ratingPopupTrip?.driver?.id ||
+                        ratingPopupStars < 1
+                      ) {
                         Alert.alert(
                           "Note requise",
                           "Veuillez sélectionner au moins une étoile.",
@@ -805,8 +841,10 @@ const HomeScreen = () => {
                 )}
               </>
             )}
-          </View>
-        </View>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
 
       <View className="flex-1 bg-background">
@@ -859,6 +897,26 @@ const HomeScreen = () => {
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (!currentUser?.isVerified) {
+                  Alert.alert(
+                    "Profil non vérifié",
+                    "Les personnes ont plus confiance lorsque les profils sont vérifiés. Augmentez vos chances de trouver un covoiturage en vérifiant votre profil en renseignant vos informations dans la rubrique mes documents de votre compte.",
+                    [
+                      { text: "Annuler", style: "cancel" },
+                      {
+                        text: "Mes documents",
+                        onPress: () =>
+                          router.push("/(stack)/edit-permit" as any),
+                      },
+                      {
+                        text: "Continuer",
+                        onPress: () =>
+                          router.push("/(stack)/search-route" as any),
+                      },
+                    ],
+                  );
+                  return;
+                }
                 router.push("/(stack)/search-route" as any);
               }}
               activeOpacity={1}

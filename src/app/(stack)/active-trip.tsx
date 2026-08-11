@@ -12,6 +12,11 @@ import type {
   PassengerRequest,
 } from "@/src/data/myPublishedTrips";
 import { mapRouteToMyPublishedTrip } from "@/src/lib/mappers";
+import {
+  formatTimeFr,
+  getRouteArrivalAt,
+  isArrivalDue,
+} from "@/src/lib/tripSchedule";
 import { queryKeys } from "@/src/services/queryKeys";
 import { getMyRoutes, updateRouteStatus } from "@/src/services/route.service";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -229,17 +234,22 @@ const ActiveTripScreen = () => {
   };
 
   const handleComplete = () => {
-    Alert.alert(
-      "Terminer le trajet",
-      "Êtes-vous sûr de vouloir terminer ce trajet ?",
-      [
-        { text: "Non", style: "cancel" },
-        {
-          text: "Oui, terminer",
-          onPress: () => completeTripMutation.mutate(),
-        },
-      ],
-    );
+    if (!trip) {
+      return;
+    }
+    const durationMin = trip.durationMin ?? 0;
+    if (
+      trip.departureAt &&
+      !isArrivalDue(trip.departureAt, durationMin)
+    ) {
+      const arrivalAt = getRouteArrivalAt(trip.departureAt, durationMin);
+      Alert.alert(
+        "Trop tôt",
+        `Le trajet vient d'être démarré. Il ne peut être terminé qu'à partir de ${arrivalAt ? formatTimeFr(arrivalAt) : "—"} (heure d'arrivée selon Maps).`,
+      );
+      return;
+    }
+    completeTripMutation.mutate();
   };
 
   const handleCancelTrip = () => {
@@ -492,7 +502,11 @@ const ActiveTripScreen = () => {
             className="mb-10 w-full rounded-xl bg-primary"
             onPress={handleComplete}
             disabled={
-              completeTripMutation.isPending || cancelTripMutation.isPending
+              completeTripMutation.isPending ||
+              cancelTripMutation.isPending ||
+              (trip.departureAt
+                ? !isArrivalDue(trip.departureAt, trip.durationMin ?? 0)
+                : false)
             }
           >
             <View className="flex-row gap-2 items-center">
