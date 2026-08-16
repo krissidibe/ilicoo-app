@@ -5,7 +5,11 @@ import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
-import { compareDepartureAsc, compareDepartureDesc, vehicleTypeLabel } from "@/src/lib/tripSchedule";
+import {
+  compareDepartureAsc,
+  compareDepartureDesc,
+  vehicleTypeLabel,
+} from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { createRating } from "@/src/services/rating.service";
 import {
@@ -320,12 +324,10 @@ const RecentTripsScreen = () => {
           </View>
 
           {(trip.vehicleName || trip.vehicleType) && (
-            <View className="flex-row items-center px-3 py-2 mt-3 rounded-xl border border-gray-300 bg-gray-50">
+            <View className="flex-row items-center px-3 py-2 mt-3 bg-gray-50 rounded-xl border border-gray-300">
               <MaterialCommunityIcons
                 name={
-                  trip.vehicleType === "MOTORCYCLE"
-                    ? "motorbike"
-                    : "car-side"
+                  trip.vehicleType === "MOTORCYCLE" ? "motorbike" : "car-side"
                 }
                 size={16}
                 color="#6366f1"
@@ -582,10 +584,31 @@ const RecentTripsScreen = () => {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
-          <Text className="text-lg font-bold text-white">Tous les trajets</Text>
-          <TouchableOpacity className="opacity-0" disabled>
-            <Ionicons name="chevron-back" size={24} color="white" />
-          </TouchableOpacity>
+          <Text className="pr-5 text-lg font-bold text-white">
+            Tous les trajets
+          </Text>
+          <View></View>
+          {/*    <TouchableOpacity
+            onPress={() =>
+              setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+            }
+            accessibilityLabel={
+              sortOrder === "asc"
+                ? "Tri : départ le plus tôt"
+                : "Tri : départ le plus tard"
+            }
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons
+              name={
+                sortOrder === "asc"
+                  ? "sort-clock-ascending"
+                  : "sort-clock-descending"
+              }
+              size={24}
+              color="white"
+            />
+          </TouchableOpacity> */}
         </View>
 
         <View className="flex-row items-center p-1 rounded-2xl bg-white/15">
@@ -609,24 +632,6 @@ const RecentTripsScreen = () => {
             </TouchableOpacity>
           ))}
         </View>
-
-        <TouchableOpacity
-          onPress={() =>
-            setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-          }
-          className="flex-row gap-2 justify-center items-center py-2 mt-3 rounded-xl bg-white/10"
-        >
-          <MaterialCommunityIcons
-            name={sortOrder === "asc" ? "sort-clock-ascending" : "sort-clock-descending"}
-            size={16}
-            color="white"
-          />
-          <Text className="text-xs font-semibold text-white">
-            {sortOrder === "asc"
-              ? "Tri : départ le plus tôt"
-              : "Tri : départ le plus tard"}
-          </Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView

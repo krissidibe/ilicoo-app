@@ -5,7 +5,7 @@ import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
-import { compareDepartureDesc, vehicleTypeLabel } from "@/src/lib/tripSchedule";
+import { compareDepartureAsc, vehicleTypeLabel } from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { getNotifications } from "@/src/services/notification.service";
 import { getPaymentsSummary } from "@/src/services/payment.service";
@@ -23,7 +23,7 @@ import * as Burnt from "burnt";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import { ChevronRightIcon, SearchIcon } from "lucide-react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -82,6 +82,8 @@ const statusConfig = (
     icon: "timer-outline",
   };
 };
+
+const ACTIVE_TRIP_STATUSES: TripStatus[] = ["En attente", "En cours"];
 
 const HomeScreen = () => {
   const isLoadingUser = false;
@@ -182,10 +184,15 @@ const HomeScreen = () => {
     }
   }, [ratingPopupTrip, paymentsData?.pendingPayments?.length]);
 
-  const displayedTrips: RecentTrip[] = (routePassengersData ?? [])
-    .map((rp) => mapRoutePassengerToRecentTrip(rp, currentUser?.id))
-    .sort(compareDepartureDesc)
-    .slice(0, 3);
+  const displayedTrips: RecentTrip[] = useMemo(
+    () =>
+      (routePassengersData ?? [])
+        .map((rp) => mapRoutePassengerToRecentTrip(rp, currentUser?.id))
+        .filter((trip) => ACTIVE_TRIP_STATUSES.includes(trip.status))
+        .sort(compareDepartureAsc)
+        .slice(0, 3),
+    [routePassengersData, currentUser?.id],
+  );
 
   useEffect(() => {
     if (!routePassengersData || routePassengersData.length === 0) return;
@@ -969,7 +976,7 @@ const HomeScreen = () => {
             ) : displayedTrips.length === 0 ? (
               <View className="items-center py-8">
                 <Text className="text-muted-foreground">
-                  Aucun trajet récent
+                  Aucun trajet à venir
                 </Text>
               </View>
             ) : (

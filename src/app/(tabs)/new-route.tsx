@@ -143,16 +143,26 @@ const Setting = () => {
     [trips],
   );
 
+  const upcomingTrips = useMemo(
+    () =>
+      trips.filter(
+        (t) => t.status === "En attente" || t.status === "En cours",
+      ),
+    [trips],
+  );
+
   const tripsFiltered = useMemo(() => {
     const base = showPendingOnly
-      ? trips.filter((t) => t.passengers.some((p) => p.status === "PENDING"))
-      : trips;
+      ? upcomingTrips.filter((t) =>
+          t.passengers.some((p) => p.status === "PENDING"),
+        )
+      : upcomingTrips;
     return [...base].sort((a, b) =>
       sortOrder === "asc"
         ? compareDepartureAsc(a, b)
         : compareDepartureDesc(a, b),
     );
-  }, [trips, showPendingOnly, sortOrder]);
+  }, [upcomingTrips, showPendingOnly, sortOrder]);
 
   useEffect(() => {
     if (totalPendingRequests === 0) {
@@ -368,12 +378,36 @@ const Setting = () => {
                 : "Mes véhicules"}
             </Text>
             {activeTab === "mes-trajets" && !paymentsData?.isAccountBlocked ? (
-              <TouchableOpacity
-                onPress={() => router.push("/(stack)/share-route" as any)}
-                className="p-2 rounded-full bg-white/0"
-              >
-                <Ionicons name="add-circle" size={28} color="white" />
-              </TouchableOpacity>
+              <View className="flex-row gap-1 items-center">
+                <TouchableOpacity
+                  onPress={() =>
+                    setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+                  }
+                  accessibilityLabel={
+                    sortOrder === "asc"
+                      ? "Tri : départ le plus tôt"
+                      : "Tri : départ le plus tard"
+                  }
+                  hitSlop={8}
+                  className="p-2"
+                >
+                  <MaterialCommunityIcons
+                    name={
+                      sortOrder === "asc"
+                        ? "sort-clock-ascending"
+                        : "sort-clock-descending"
+                    }
+                    size={24}
+                    color="white"
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push("/(stack)/share-route" as any)}
+                  className="p-2 rounded-full bg-white/0"
+                >
+                  <Ionicons name="add-circle" size={28} color="white" />
+                </TouchableOpacity>
+              </View>
             ) : null}
           </View>
         </View>
@@ -492,27 +526,6 @@ const Setting = () => {
                       />
                     </TouchableOpacity>
                   ) : null}
-                  <TouchableOpacity
-                    onPress={() =>
-                      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-                    }
-                    className="flex-row gap-2 justify-center items-center p-3 mb-4 rounded-xl border border-gray-200 bg-white"
-                  >
-                    <MaterialCommunityIcons
-                      name={
-                        sortOrder === "asc"
-                          ? "sort-clock-ascending"
-                          : "sort-clock-descending"
-                      }
-                      size={18}
-                      color="#6366f1"
-                    />
-                    <Text className="text-sm font-medium text-foreground">
-                      {sortOrder === "asc"
-                        ? "Tri : départ le plus tôt"
-                        : "Tri : départ le plus tard"}
-                    </Text>
-                  </TouchableOpacity>
                   {totalPendingRequests > 0 ? (
                     <TouchableOpacity
                       activeOpacity={0.88}
@@ -600,7 +613,17 @@ const Setting = () => {
                           Tout afficher
                         </Text>
                       </TouchableOpacity>
-                    ) : null}
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() =>
+                          router.push("/(stack)/driver-trips" as any)
+                        }
+                      >
+                        <Text className="text-sm font-medium text-primary">
+                          Voir tout
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   <View className="gap-3">
@@ -624,16 +647,20 @@ const Setting = () => {
                           color="#94a3b8"
                         />
                         <Text className="mt-3 text-center text-muted-foreground">
-                          Aucun trajet ne correspond à ce filtre pour le moment.
+                          {showPendingOnly
+                            ? "Aucun trajet ne correspond à ce filtre pour le moment."
+                            : "Aucun trajet à venir"}
                         </Text>
-                        <TouchableOpacity
-                          onPress={() => setShowPendingOnly(false)}
-                          className="px-4 py-2 mt-4 rounded-xl bg-primary"
-                        >
-                          <Text className="text-sm font-semibold text-white">
-                            Effacer le filtre
-                          </Text>
-                        </TouchableOpacity>
+                        {showPendingOnly ? (
+                          <TouchableOpacity
+                            onPress={() => setShowPendingOnly(false)}
+                            className="px-4 py-2 mt-4 rounded-xl bg-primary"
+                          >
+                            <Text className="text-sm font-semibold text-white">
+                              Effacer le filtre
+                            </Text>
+                          </TouchableOpacity>
+                        ) : null}
                       </View>
                     ) : (
                       tripsFiltered.map((trip, index) => {
