@@ -72,6 +72,8 @@ export type RouteApi = {
     type: VehicleTypeApi;
     name: string;
     photo?: string | null;
+    color?: string | null;
+    plateNumber?: string | null;
   } | null;
   pickupLat: number;
   pickupLng: number;

@@ -74,3 +74,24 @@ export function vehicleTypeLabel(type?: "CAR" | "MOTORCYCLE" | null): string {
   }
   return "Véhicule";
 }
+
+/** Nom + couleur + immatriculation, sans répéter le type (« Voiture • Voiture »). */
+export function formatVehicleDetails(opts: {
+  name?: string | null;
+  type?: "CAR" | "MOTORCYCLE" | null;
+  color?: string | null;
+  plateNumber?: string | null;
+}): string {
+  const typeLabel = vehicleTypeLabel(opts.type);
+  const name = opts.name?.trim();
+  const parts: string[] = [name && name.length > 0 ? name : typeLabel];
+  const color = opts.color?.trim();
+  if (color && color !== "—") {
+    parts.push(color);
+  }
+  const plate = opts.plateNumber?.trim();
+  if (plate && plate !== "—") {
+    parts.push(plate);
+  }
+  return parts.join(" • ");
+}

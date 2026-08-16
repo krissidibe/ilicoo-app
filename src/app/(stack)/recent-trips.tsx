@@ -8,7 +8,7 @@ import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
 import {
   compareDepartureAsc,
   compareDepartureDesc,
-  vehicleTypeLabel,
+  formatVehicleDetails,
 } from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { createRating } from "@/src/services/rating.service";
@@ -333,8 +333,12 @@ const RecentTripsScreen = () => {
                 color="#6366f1"
               />
               <Text className="ml-2 text-sm font-medium text-foreground">
-                {vehicleTypeLabel(trip.vehicleType)}
-                {trip.vehicleName ? ` • ${trip.vehicleName}` : ""}
+                {formatVehicleDetails({
+                  name: trip.vehicleName,
+                  type: trip.vehicleType,
+                  color: trip.vehicleColor,
+                  plateNumber: trip.vehiclePlate,
+                })}
               </Text>
             </View>
           )}
@@ -468,7 +472,7 @@ const RecentTripsScreen = () => {
                 color="#9ca3af"
               />
               <Text className="ml-1 text-xs text-muted-foreground">
-                Date: {myInfo.date} - {myInfo.time}
+                Date: {myInfo.date}
               </Text>
             </View>
             <View className="flex-row items-center">
@@ -752,8 +756,7 @@ const RecentTripsScreen = () => {
                           color="#9ca3af"
                         />
                         <Text className="ml-1 text-xs text-muted-foreground">
-                          {trip.myPassengerInfo?.date}{" "}
-                          {trip.myPassengerInfo?.time}
+                          {trip.myPassengerInfo?.date ?? trip.date}
                         </Text>
                       </View>
                       <View className="flex-row items-center">

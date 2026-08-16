@@ -106,9 +106,7 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
     route?.vehicleType === "MOTORCYCLE" || route?.vehicle?.type === "MOTORCYCLE"
       ? "MOTORCYCLE"
       : "CAR";
-  const vehicleName =
-    route?.vehicle?.name ??
-    (routeVehicleType === "MOTORCYCLE" ? "Moto" : "Voiture");
+  const vehicleName = route?.vehicle?.name?.trim() || undefined;
   return {
     id: rp.routeID,
     routePassengerId: rp.id,
@@ -121,6 +119,8 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
     departureAt: route?.departureAt ?? null,
     vehicleName,
     vehicleType: routeVehicleType,
+    vehicleColor: route?.vehicle?.color ?? null,
+    vehiclePlate: route?.vehicle?.plateNumber ?? null,
     driver:
       driver &&
       (status === "Termine" ||

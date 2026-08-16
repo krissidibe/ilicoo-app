@@ -2,6 +2,7 @@ import { RouteMapView } from "@/src/components/Map/RouteMapView";
 import { Text } from "@/src/components/ui/text";
 import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { RecentTrip } from "@/src/data/recentTrips";
+import { formatVehicleDetails } from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { queryKeys } from "@/src/services/queryKeys";
 import { cancelMyTrip } from "@/src/services/routePassenger.service";
@@ -152,8 +153,12 @@ export const PassengerTripDetailBody = ({ trip }: Props) => {
                 color="#6366f1"
               />
               <Text className="ml-2 text-sm font-medium text-foreground">
-                {trip.vehicleType === "MOTORCYCLE" ? "Moto" : "Voiture"}
-                {trip.vehicleName ? ` • ${trip.vehicleName}` : ""}
+                {formatVehicleDetails({
+                  name: trip.vehicleName,
+                  type: trip.vehicleType,
+                  color: trip.vehicleColor,
+                  plateNumber: trip.vehiclePlate,
+                })}
               </Text>
             </View>
           )}
@@ -272,7 +277,7 @@ export const PassengerTripDetailBody = ({ trip }: Props) => {
                 color="#9ca3af"
               />
               <Text className="ml-1 text-xs text-muted-foreground">
-                Date: {myInfo.date} - {myInfo.time}
+                Date: {myInfo.date}
               </Text>
             </View>
             <View className="flex-row items-center">
