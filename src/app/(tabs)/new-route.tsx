@@ -145,9 +145,7 @@ const Setting = () => {
 
   const upcomingTrips = useMemo(
     () =>
-      trips.filter(
-        (t) => t.status === "En attente" || t.status === "En cours",
-      ),
+      trips.filter((t) => t.status === "En attente" || t.status === "En cours"),
     [trips],
   );
 
@@ -379,7 +377,7 @@ const Setting = () => {
             </Text>
             {activeTab === "mes-trajets" && !paymentsData?.isAccountBlocked ? (
               <View className="flex-row gap-1 items-center">
-                <TouchableOpacity
+                {/*  <TouchableOpacity
                   onPress={() =>
                     setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
                   }
@@ -400,7 +398,7 @@ const Setting = () => {
                     size={24}
                     color="white"
                   />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
                 <TouchableOpacity
                   onPress={() => router.push("/(stack)/share-route" as any)}
                   className="p-2 rounded-full bg-white/0"
