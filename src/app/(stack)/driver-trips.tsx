@@ -6,10 +6,7 @@ import type {
 } from "@/src/data/myPublishedTrips";
 import { useTripMapSheets } from "@/src/hooks/useTripMapSheets";
 import { mapRouteToMyPublishedTrip } from "@/src/lib/mappers";
-import {
-  compareDepartureAsc,
-  compareDepartureDesc,
-} from "@/src/lib/tripSchedule";
+import { compareCreatedAtDesc } from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { queryKeys } from "@/src/services/queryKeys";
 import { getMyRoutes } from "@/src/services/route.service";
@@ -61,7 +58,6 @@ const statusConfig = (
 
 const DriverTripsScreen = () => {
   const [activeTab, setActiveTab] = useState<TripTab>("Avenir");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const { open } = useBottomSheetStore();
   const queryClient = useQueryClient();
 
@@ -77,12 +73,8 @@ const DriverTripsScreen = () => {
   const filteredTrips = React.useMemo(() => {
     const statuses = activeTab === "Avenir" ? AVENIR_STATUSES : PASSE_STATUSES;
     const filtered = allTrips.filter((trip) => statuses.includes(trip.status));
-    return [...filtered].sort((a, b) =>
-      sortOrder === "asc"
-        ? compareDepartureAsc(a, b)
-        : compareDepartureDesc(a, b),
-    );
-  }, [allTrips, activeTab, sortOrder]);
+    return [...filtered].sort(compareCreatedAtDesc);
+  }, [allTrips, activeTab]);
 
   const updateStatusMutation = useMutation({
     mutationFn: ({
@@ -146,28 +138,7 @@ const DriverTripsScreen = () => {
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
           <Text className="pr-5 text-lg font-bold text-white">Mes trajets</Text>
-          <View></View>
-          {/*   <TouchableOpacity
-            onPress={() =>
-              setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-            }
-            accessibilityLabel={
-              sortOrder === "asc"
-                ? "Tri : départ le plus tôt"
-                : "Tri : départ le plus tard"
-            }
-            hitSlop={8}
-          >
-            <MaterialCommunityIcons
-              name={
-                sortOrder === "asc"
-                  ? "sort-clock-ascending"
-                  : "sort-clock-descending"
-              }
-              size={24}
-              color="white"
-            />
-          </TouchableOpacity> */}
+          <View />
         </View>
 
         <View className="flex-row items-center p-1 rounded-2xl bg-white/15">

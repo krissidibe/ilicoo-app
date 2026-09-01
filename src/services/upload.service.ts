@@ -1,4 +1,5 @@
 import { authClient } from "../lib/auth-client";
+import { trimCookieHeader } from "../lib/auth-session";
 import { getApiV1BaseUrl } from "../lib/api-base-url";
 
 const guessMime = (name: string): string => {
@@ -24,7 +25,7 @@ export const uploadImageFile = async (localUri: string): Promise<string> => {
     type: guessMime(fileName),
   } as unknown as Blob);
 
-  const cookies = authClient.getCookie();
+  const cookies = trimCookieHeader(authClient.getCookie());
   const res = await fetch(`${getApiV1BaseUrl()}upload`, {
     method: "POST",
     headers: {

@@ -51,6 +51,7 @@ export type MyPublishedTrip = {
   totalSeats: number;
   vehicleName: string;
   vehicleType?: "CAR" | "MOTORCYCLE";
+  createdAt?: string | null;
   departureAt?: string | null;
   durationMin?: number;
   passengers: PassengerRequest[];

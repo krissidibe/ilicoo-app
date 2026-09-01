@@ -13,19 +13,33 @@ const extractDevHost = (): string | null => {
   return host || null;
 };
 
-export const getApiBaseUrl = (): string => {
-  //return "http://localhost:3000";
-  return "http://195.110.34.95";
+const normalizeBaseUrl = (url: string): string => url.replace(/\/$/, "");
+
+const resolveBaseUrl = (): string => {
+  const fromEnv = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  if (fromEnv) {
+    return normalizeBaseUrl(fromEnv);
+  }
+
+  const devHost = extractDevHost();
+  if (devHost) {
+    return `http://${devHost}:${LOCAL_API_PORT}`;
+  }
+
+  return "http://localhost:3000";
 };
 
+export const getApiBaseUrl = (): string => resolveBaseUrl();
+
 /**
- * Better Auth `baseURL` (same origin as `BETTER_AUTH_URL` on the server).
- * Prefer `EXPO_PUBLIC_BETTER_AUTH_URL` so it always matches the Next app URL
- * (avoids localhost vs LAN IP mismatches for OAuth redirects).
+ * Better Auth `baseURL` — doit correspondre à `BETTER_AUTH_URL` sur le serveur.
  */
 export const getAuthServerBaseUrl = (): string => {
-  //return "http://localhost:3000";
-  return "http://195.110.34.95";
+  const fromEnv = process.env.EXPO_PUBLIC_BETTER_AUTH_URL?.trim();
+  if (fromEnv) {
+    return normalizeBaseUrl(fromEnv);
+  }
+  return getApiBaseUrl();
 };
 
 export const getApiV1BaseUrl = (): string => `${getApiBaseUrl()}${API_PREFIX}`;

@@ -1,8 +1,9 @@
 import { authClient } from "../lib/auth-client";
+import { trimCookieHeader } from "../lib/auth-session";
 import { getApiV1BaseUrl } from "../lib/api-base-url";
 
 export const apiFetch = async (endPoint: string, options: RequestInit = {}) => {
-  const cookies = authClient.getCookie();
+  const cookies = trimCookieHeader(authClient.getCookie());
   const apiUrl = getApiV1BaseUrl();
 
   const response = await fetch(`${apiUrl}${endPoint}`, {

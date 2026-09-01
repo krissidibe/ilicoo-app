@@ -233,6 +233,7 @@ export const mapRouteToMyPublishedTrip = (r: RouteApi): MyPublishedTrip => {
     totalSeats,
     vehicleName,
     vehicleType: routeVehicleType,
+    createdAt: r.createdAt,
     departureAt: r.departureAt,
     durationMin: r.durationMin,
     passengers,

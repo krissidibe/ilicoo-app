@@ -229,8 +229,9 @@ const SignIn = () => {
               )}
               <Button
                 onPress={async () => {
+                  const normalizedEmail = email.trim().toLowerCase();
                   if (
-                    email.trim().length === 0 ||
+                    normalizedEmail.length === 0 ||
                     password.trim().length === 0
                   ) {
                     setOtpMessage(
@@ -238,20 +239,35 @@ const SignIn = () => {
                     );
                     return;
                   }
-                  const response = await authClient.signIn.email({
-                    email: email,
-                    password: password,
-                  });
-                  if (response?.error) {
-                    setOtpMessage(
-                      response.error.message ?? "Erreur de connexion",
-                    );
-                    return;
-                  }
                   setOtpMessage("");
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  useAuthStore.getState().triggerAuthRefresh();
-                  router.replace("/(tabs)" as any);
+                  try {
+                    const response = await authClient.signIn.email({
+                      email: normalizedEmail,
+                      password,
+                    });
+                    if (response?.error) {
+                      setOtpMessage(
+                        response.error.message ?? "Email ou mot de passe incorrect",
+                      );
+                      return;
+                    }
+                    const session = await authClient.getSession();
+                    if (session.error || !session.data?.user) {
+                      setOtpMessage(
+                        "Connexion refusée : impossible d’établir la session. Réessayez.",
+                      );
+                      return;
+                    }
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    useAuthStore.getState().triggerAuthRefresh();
+                    router.replace("/(tabs)" as any);
+                  } catch (e) {
+                    setOtpMessage(
+                      e instanceof Error
+                        ? e.message
+                        : "Erreur réseau : vérifiez votre connexion au serveur.",
+                    );
+                  }
                 }}
                 size="lg"
                 className="mt-2 w-full"

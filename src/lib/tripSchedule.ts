@@ -65,6 +65,16 @@ export function compareDepartureDesc(
   return compareDepartureAsc(b, a);
 }
 
+/** Plus récent au plus ancien (date de publication / création). */
+export function compareCreatedAtDesc(
+  a: { createdAt?: string | null },
+  b: { createdAt?: string | null },
+): number {
+  const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+  const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+  return tb - ta;
+}
+
 export function vehicleTypeLabel(type?: "CAR" | "MOTORCYCLE" | null): string {
   if (type === "MOTORCYCLE") {
     return "Moto";

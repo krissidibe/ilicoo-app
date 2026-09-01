@@ -2,10 +2,23 @@ import { expoClient } from "@better-auth/expo/client";
 import { inferAdditionalFields } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import { getAuthServerBaseUrl } from "./api-base-url";
+import { persistBetterAuthSessionToken } from "./auth-session";
 
 export const authClient = createAuthClient({
   baseURL: getAuthServerBaseUrl(),
+  fetchOptions: {
+    onSuccess: async (context) => {
+      if (Platform.OS === "web") {
+        return;
+      }
+      const authToken = context.response.headers.get("set-auth-token");
+      if (authToken) {
+        await persistBetterAuthSessionToken(authToken);
+      }
+    },
+  },
   plugins: [
     inferAdditionalFields({
       user: {
