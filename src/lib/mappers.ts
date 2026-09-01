@@ -2,6 +2,7 @@
  * Mappers pour convertir les données API en format UI
  */
 import type { RoutePassengerApi, RouteApi, VehicleApi } from "@/src/types/api";
+import { resolvePublicAssetUrl } from "@/src/lib/public-asset-url";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import type { MyPublishedTrip, MyPublishedTripStatus, PassengerRequest, PassengerRequestStatus } from "@/src/data/myPublishedTrips";
 import type { OtherDriverRoute } from "@/src/data/otherDriversRoutes";
@@ -283,7 +284,10 @@ export const mapRouteToOtherDriverRoute = (r: RouteApi & { user?: { id: string; 
   ],
   color: COLORS[index % COLORS.length],
   vehicleType,
-  vehiclePhotoUrl: r.vehicle?.photo ?? null,
+  vehiclePhotoUrl: resolvePublicAssetUrl(r.vehicle?.photo ?? null),
+  vehicleName: r.vehicle?.name?.trim() || undefined,
+  vehicleColor: r.vehicle?.color ?? null,
+  vehiclePlate: r.vehicle?.plateNumber ?? null,
   driverIsVerified: Boolean(r.user?.isVerified),
   distanceFromSearchPickupKm: r.searchPickupDistanceKm,
   distanceFromSearchDropKm: r.searchDropDistanceKm,

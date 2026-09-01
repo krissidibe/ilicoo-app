@@ -53,5 +53,6 @@ export const uploadImageFile = async (localUri: string): Promise<string> => {
   if (!json.success || !json.data?.url) {
     throw new Error("Réponse d’upload invalide");
   }
-  return json.data.url;
+  // Stocker le chemin relatif en base (stable entre appareils / backoffice)
+  return json.data.path ?? json.data.url;
 };

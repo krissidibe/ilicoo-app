@@ -3,7 +3,6 @@ import { RouteMapView } from "@/src/components/Map/RouteMapView";
 import StarRating from "@/src/components/StarRating";
 import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
-import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
 import { compareDepartureAsc, formatVehicleDetails } from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
@@ -16,6 +15,7 @@ import {
   cancelMyTrip,
   getRoutePassengers,
 } from "@/src/services/routePassenger.service";
+import { getUser as getUserProfile } from "@/src/services/user.service";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -86,9 +86,11 @@ const statusConfig = (
 const ACTIVE_TRIP_STATUSES: TripStatus[] = ["En attente", "En cours"];
 
 const HomeScreen = () => {
-  const isLoadingUser = false;
   const queryClient = useQueryClient();
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const { data: currentUser, refetch: refetchUser, isLoading: isLoadingUser } = useQuery({
+    ...getUserProfile(),
+    staleTime: 0,
+  });
 
   const { open, close } = useBottomSheetStore();
   const { data: routePassengersData, isLoading: isLoadingTrips } = useQuery({
@@ -158,7 +160,8 @@ const HomeScreen = () => {
       queryClient.invalidateQueries({ queryKey: ["route-passengers"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       queryClient.invalidateQueries({ queryKey: ["payments", "summary"] });
-    }, [queryClient]),
+      void refetchUser();
+    }, [queryClient, refetchUser]),
   );
 
   const prevUnreadRef = useRef(unreadCount);
@@ -229,13 +232,6 @@ const HomeScreen = () => {
     const canOpen = await Linking.canOpenURL(phoneUrl);
     if (canOpen) await Linking.openURL(phoneUrl);
   };
-
-  useEffect(() => {
-    (async () => {
-      const user = await getUser();
-      setCurrentUser(user);
-    })();
-  }, []);
 
   const openMapSheet = (trip: RecentTrip): void => {
     const driverLat = trip.pickupLat ?? 0;

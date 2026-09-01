@@ -1,5 +1,6 @@
 import { Text } from "@/src/components/ui/text";
 import { mapVehicleToUi } from "@/src/lib/mappers";
+import { resolvePublicAssetUrl } from "@/src/lib/public-asset-url";
 import { cn } from "@/src/lib/utils";
 import { getVehicules } from "@/src/services/vehicle.service";
 import type { VehicleApi } from "@/src/types/api";
@@ -119,7 +120,7 @@ const MyVehiclesScreen = () => {
                 >
                   {vehicle.photo ? (
                     <Image
-                      source={{ uri: vehicle.photo }}
+                      source={{ uri: resolvePublicAssetUrl(vehicle.photo) ?? undefined }}
                       className="rounded-xl size-14 bg-gray-100"
                     />
                   ) : (
@@ -138,7 +139,8 @@ const MyVehiclesScreen = () => {
                     <Text className="mt-0.5 text-xs text-muted-foreground">
                       {isMoto ? "Moto" : "Voiture"} • {ui.maximumPassenger}{" "}
                       place(s)
-                      {!isMoto && ui.NM !== "—" ? ` • ${ui.NM}` : ""}
+                      {ui.NM !== "—" ? ` • ${ui.NM}` : ""}
+                      {ui.color !== "—" ? ` • ${ui.color}` : ""}
                     </Text>
                     {vehicle.default ? (
                       <Text className="mt-1 text-[11px] font-semibold text-primary">

@@ -30,6 +30,9 @@ export type OtherDriverRoute = {
   vehicleType: "CAR" | "MOTORCYCLE";
   /** Photo du véhicule (recherche / reconnaissance) */
   vehiclePhotoUrl?: string | null;
+  vehicleName?: string;
+  vehicleColor?: string | null;
+  vehiclePlate?: string | null;
   /** Chauffeur vérifié */
   driverIsVerified?: boolean;
   /** Distance du départ du chauffeur au point de départ recherché (km) */

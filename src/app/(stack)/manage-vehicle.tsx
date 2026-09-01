@@ -2,6 +2,7 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Text } from "@/src/components/ui/text";
 import { cn } from "@/src/lib/utils";
+import { resolvePublicAssetUrl } from "@/src/lib/public-asset-url";
 import { queryKeys } from "@/src/services/queryKeys";
 import { uploadImageFile } from "@/src/services/upload.service";
 import { getUser } from "@/src/services/user.service";
@@ -190,7 +191,7 @@ const ManageVehicleScreen = () => {
   const fieldsByStep: (keyof VehicleFormValues)[][] = isMoto
     ? [
         ["vehicleType", "maximumPassenger"],
-        ["vehicleName", "color"],
+        ["vehicleName", "plateNumber", "color"],
       ]
     : hasPermitInfo
       ? [
@@ -270,7 +271,11 @@ const ManageVehicleScreen = () => {
       permitPhotoBack: "",
       identityPhoto: "",
     });
-    setVehiclePhotoUri(editingVehicle.photo);
+    setVehiclePhotoUri(
+      editingVehicle.photo
+        ? resolvePublicAssetUrl(editingVehicle.photo)
+        : null,
+    );
     setCurrentStep(0);
     setFurthestUnlockedStep(steps.length - 1);
   }, [editingVehicle, reset, steps.length]);
@@ -303,10 +308,17 @@ const ManageVehicleScreen = () => {
     try {
       let photo: string | undefined;
       if (vehiclePhotoUri) {
-        photo =
-          vehiclePhotoUri.startsWith("http") && isEditMode
-            ? vehiclePhotoUri
-            : await uploadImageFile(vehiclePhotoUri);
+        const isLocalPhoto =
+          vehiclePhotoUri.startsWith("file:") ||
+          vehiclePhotoUri.startsWith("content:") ||
+          vehiclePhotoUri.startsWith("ph://");
+        if (isLocalPhoto) {
+          photo = await uploadImageFile(vehiclePhotoUri);
+        } else if (isEditMode && editingVehicle?.photo) {
+          photo = editingVehicle.photo;
+        } else {
+          photo = vehiclePhotoUri;
+        }
       }
       if (isEditMode && vehicleId) {
         await updateMutation.mutateAsync({
@@ -315,7 +327,7 @@ const ManageVehicleScreen = () => {
             type: values.vehicleType as "voiture" | "moto",
             vehicleName: values.vehicleName,
             year: isMoto ? undefined : values.year,
-            plateNumber: isMoto ? undefined : values.plateNumber,
+            plateNumber: values.plateNumber,
             color: values.color || undefined,
             photo,
             maximumPassenger: values.maximumPassenger,
@@ -327,7 +339,7 @@ const ManageVehicleScreen = () => {
         type: values.vehicleType as "voiture" | "moto",
         vehicleName: values.vehicleName,
         year: isMoto ? undefined : values.year,
-        plateNumber: isMoto ? undefined : values.plateNumber,
+        plateNumber: values.plateNumber,
         color: values.color || undefined,
         photo,
         permitNumber: values.licenseNumber || undefined,
@@ -489,68 +501,66 @@ const ManageVehicleScreen = () => {
             />
 
             {!isMoto ? (
-              <>
-                <Controller
-                  control={control}
-                  name="year"
-                  rules={{
-                    required: "L'année est requise",
-                    pattern: {
-                      value: /^(19|20)\d{2}$/,
-                      message: "Année invalide (ex: 2022)",
-                    },
-                  }}
-                  render={({ field: { value } }) => (
-                    <View>
-                      <Text className="mb-1 text-xs text-muted-foreground">
-                        Année
+              <Controller
+                control={control}
+                name="year"
+                rules={{
+                  required: "L'année est requise",
+                  pattern: {
+                    value: /^(19|20)\d{2}$/,
+                    message: "Année invalide (ex: 2022)",
+                  },
+                }}
+                render={({ field: { value } }) => (
+                  <View>
+                    <Text className="mb-1 text-xs text-muted-foreground">
+                      Année
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setYearSheetOpen(true)}
+                      className="flex-row justify-between items-center p-4 bg-white rounded-xl border border-gray"
+                    >
+                      <Text className="text-sm">
+                        {value ? value : "Choisir l'année"}
                       </Text>
-                      <TouchableOpacity
-                        onPress={() => setYearSheetOpen(true)}
-                        className="flex-row justify-between items-center p-4 bg-white rounded-xl border border-gray"
-                      >
-                        <Text className="text-sm">
-                          {value ? value : "Choisir l'année"}
-                        </Text>
-                        <Ionicons
-                          name="calendar-outline"
-                          size={18}
-                          color="#64748b"
-                        />
-                      </TouchableOpacity>
-                      {errors.year ? (
-                        <Text className="mt-1 text-xs text-red-500">
-                          {errors.year.message}
-                        </Text>
-                      ) : null}
-                    </View>
-                  )}
-                />
-
-                <Controller
-                  control={control}
-                  name="plateNumber"
-                  rules={{ required: "Le numéro de matriculation est requis" }}
-                  render={({ field: { onChange, value } }) => (
-                    <View>
-                      <Text className="mb-1 text-xs text-muted-foreground">
-                        Numéro de matriculation
-                      </Text>
-                      <Input
-                        value={value}
-                        onChangeText={onChange}
-                        placeholder="Ex: BK-1234-AA"
+                      <Ionicons
+                        name="calendar-outline"
+                        size={18}
+                        color="#64748b"
                       />
-                      {errors.plateNumber ? (
-                        <Text className="mt-1 text-xs text-red-500">
-                          {errors.plateNumber.message}
-                        </Text>
-                      ) : null}
-                    </View>
-                  )}
-                />
-              </>
+                    </TouchableOpacity>
+                    {errors.year ? (
+                      <Text className="mt-1 text-xs text-red-500">
+                        {errors.year.message}
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
+              />
             ) : null}
+
+            <Controller
+              control={control}
+              name="plateNumber"
+              rules={{ required: "Le numéro de matriculation est requis" }}
+              render={({ field: { onChange, value } }) => (
+                <View>
+                  <Text className="mb-1 text-xs text-muted-foreground">
+                    Numéro de matriculation
+                  </Text>
+                  <Input
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder="Ex: BK-1234-AA"
+                  />
+                  {errors.plateNumber ? (
+                    <Text className="mt-1 text-xs text-red-500">
+                      {errors.plateNumber.message}
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+            />
 
             <Controller
               control={control}

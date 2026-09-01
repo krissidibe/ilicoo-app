@@ -13,6 +13,7 @@ export const authClient = createAuthClient({
         phoneNumber: { type: "string", required: true },
         country: { type: "string", required: true },
         gender: { type: "string", required: true },
+        isVerified: { type: "boolean", required: false },
       },
     }),
     expoClient({

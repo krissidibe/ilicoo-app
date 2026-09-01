@@ -294,7 +294,7 @@ const DriverTripsScreen = () => {
                           color="#9ca3af"
                         />
                         <Text className="ml-1 text-xs text-muted-foreground">
-                          {trip.date} {trip.time}
+                          {trip.date}
                         </Text>
                       </View>
                       <View className="flex-row items-center">

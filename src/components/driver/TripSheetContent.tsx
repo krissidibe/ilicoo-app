@@ -10,12 +10,8 @@ import type {
   MyPublishedTrip,
   PassengerRequest,
 } from "@/src/data/myPublishedTrips";
-import {
-  formatTimeFr,
-  getRouteArrivalAt,
-  isArrivalDue,
-} from "@/src/lib/tripSchedule";
 import { mapRouteToMyPublishedTrip } from "@/src/lib/mappers";
+import { isArrivalDue } from "@/src/lib/tripSchedule";
 import {
   cn,
   formatPriceDisplay,
@@ -530,7 +526,7 @@ export const TripSheetContent = ({
               color="#9ca3af"
             />
             <Text className="ml-1 text-xs text-muted-foreground">
-              {trip.date} - {trip.time}
+              {trip.date}
             </Text>
           </View>
           <View className="flex-row items-center">

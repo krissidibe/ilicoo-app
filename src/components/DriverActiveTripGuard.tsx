@@ -33,7 +33,7 @@ export const DriverActiveTripGuard = ({
     }
 
     const onActiveTripScreen =
-      segments.includes("active-trip") ||
+      (segments as readonly string[]).includes("active-trip") ||
       (pathname ?? "").includes("active-trip");
 
     if (onActiveTripScreen) {

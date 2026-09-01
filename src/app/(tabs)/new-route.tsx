@@ -34,7 +34,7 @@ import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -751,7 +751,7 @@ const Setting = () => {
                                       color="#9ca3af"
                                     />
                                     <Text className="ml-1 text-xs text-muted-foreground">
-                                      {trip.date} {trip.time}
+                                      {trip.date}
                                     </Text>
                                   </View>
                                   <View className="flex-row flex-1 justify-end items-center">

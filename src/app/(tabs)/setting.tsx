@@ -306,7 +306,7 @@ const Setting = () => {
             </Animated.View>
             <Animated.View entering={FadeInDown.delay(220).duration(350)}>
               <SettingItem
-                icon="bell-ring-outline"
+                icon="notifications-outline"
                 title="Notifications push"
                 subtitle="Recevoir des alertes de trajet"
                 rightNode={

@@ -9,6 +9,7 @@ import { Text } from "@/src/components/ui/text";
 import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { OtherDriverRoute } from "@/src/data/otherDriversRoutes";
 import { mapRouteToOtherDriverRoute } from "@/src/lib/mappers";
+import { formatVehicleDetails } from "@/src/lib/tripSchedule";
 import {
   cn,
   formatTripPriceForVehicle,
@@ -1118,6 +1119,30 @@ const SearchRouteScreen = () => {
                           </Text>
                         </TouchableOpacity>
                       </View>
+                      {(driver.vehicleName || driver.vehicleType) && (
+                        <View className="flex-row items-center px-2 py-1.5 mb-2 rounded-lg bg-indigo-50">
+                          <MaterialCommunityIcons
+                            name={
+                              driver.vehicleType === "MOTORCYCLE"
+                                ? "motorbike"
+                                : "car-side"
+                            }
+                            size={14}
+                            color="#6366f1"
+                          />
+                          <Text
+                            className="ml-2 text-xs font-medium text-indigo-900"
+                            numberOfLines={1}
+                          >
+                            {formatVehicleDetails({
+                              name: driver.vehicleName,
+                              type: driver.vehicleType,
+                              color: driver.vehicleColor,
+                              plateNumber: driver.vehiclePlate,
+                            })}
+                          </Text>
+                        </View>
+                      )}
                       <View className="flex-row gap-2 items-center mb-2">
                         <Ionicons
                           name="navigate-outline"
