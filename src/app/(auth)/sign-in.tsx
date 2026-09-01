@@ -239,7 +239,7 @@ const SignIn = () => {
                     );
                     return;
                   }
-                  setOtpMessage("");
+                    setOtpMessage("");
                   try {
                     const response = await authClient.signIn.email({
                       email: normalizedEmail,
@@ -254,7 +254,7 @@ const SignIn = () => {
                     const session = await authClient.getSession();
                     if (session.error || !session.data?.user) {
                       setOtpMessage(
-                        "Connexion refusée : impossible d’établir la session. Réessayez.",
+                        "Connexion refusée : session introuvable. Redémarrez l’app ou vérifiez le serveur.",
                       );
                       return;
                     }
@@ -262,10 +262,18 @@ const SignIn = () => {
                     useAuthStore.getState().triggerAuthRefresh();
                     router.replace("/(tabs)" as any);
                   } catch (e) {
+                    const message =
+                      e instanceof Error ? e.message : "Erreur réseau";
+                    if (message.includes("502") || message.includes("Bad Gateway")) {
+                      setOtpMessage(
+                        "Serveur indisponible (502). Le backend de production est arrêté.",
+                      );
+                      return;
+                    }
                     setOtpMessage(
-                      e instanceof Error
-                        ? e.message
-                        : "Erreur réseau : vérifiez votre connexion au serveur.",
+                      message.includes("fetch")
+                        ? "Impossible de joindre le serveur. Vérifiez votre connexion."
+                        : message,
                     );
                   }
                 }}
