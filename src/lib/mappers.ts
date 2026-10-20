@@ -76,7 +76,14 @@ const formatDateShort = (dateStr: string | null) => {
 export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUserId?: string): RecentTrip => {
   const route = rp.route;
   const driver = route?.user;
-  const status = ROUTE_PASSENGER_STATUS_TO_UI[rp.status] ?? "En attente";
+  const rideCompleted = route?.status === "COMPLETED";
+  const status: TripStatus =
+    rp.status === "CANCELLED" || rp.status === "REJECTED"
+      ? "Annule"
+      : rideCompleted &&
+          (rp.status === "ACCEPTED" || rp.status === "COMPLETED")
+        ? "Termine"
+        : (ROUTE_PASSENGER_STATUS_TO_UI[rp.status] ?? "En attente");
   const hasMyPassengerData = rp.pickupAddress ?? rp.dropAddress ?? rp.departureAt;
   const myFrom = rp.pickupAddress ?? route?.pickupAddress ?? "—";
   const myTo = rp.dropAddress ?? route?.dropAddress ?? "—";
@@ -154,7 +161,11 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
       dropLng: rp.dropLng ?? route?.dropLng,
     },
     otherPassengerNames,
-    canCancel: rp.status === "PENDING" || rp.status === "ACCEPTED",
+    canCancel:
+      (rp.status === "PENDING" || rp.status === "ACCEPTED") &&
+      route?.status !== "COMPLETED" &&
+      route?.status !== "CANCELLED",
+    passengerApiStatus: rp.status,
   };
 };
 

@@ -9,11 +9,16 @@ import { cn } from "@/src/lib/utils";
 import { getNotifications } from "@/src/services/notification.service";
 import { getPaymentsSummary } from "@/src/services/payment.service";
 import { queryKeys } from "@/src/services/queryKeys";
-import { createRating, getRatedTripIds } from "@/src/services/rating.service";
+import {
+  createRating,
+  getRatedTripIds,
+  markTripAsRated,
+} from "@/src/services/rating.service";
 import { getReportedRouteIds } from "@/src/services/report.service";
 import {
   cancelMyTrip,
   getRoutePassengers,
+  updateRoutePassengerStatus,
 } from "@/src/services/routePassenger.service";
 import { getUser as getUserProfile } from "@/src/services/user.service";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
@@ -36,7 +41,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, { FadeIn, FadeInDown, ZoomIn } from "react-native-reanimated";
@@ -86,6 +91,7 @@ const statusConfig = (
 const ACTIVE_TRIP_STATUSES: TripStatus[] = ["En attente", "En cours"];
 
 const HomeScreen = () => {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const queryClient = useQueryClient();
   const { data: currentUser, refetch: refetchUser, isLoading: isLoadingUser } = useQuery({
     ...getUserProfile(),
@@ -138,6 +144,64 @@ const HomeScreen = () => {
       Alert.alert(
         "Erreur",
         e instanceof Error ? e.message : "Impossible de noter",
+      );
+    },
+  });
+
+  const confirmTripMutation = useMutation({
+    mutationFn: (routePassengerId: string) =>
+      updateRoutePassengerStatus(routePassengerId, "COMPLETED"),
+    onSuccess: async () => {
+      const trip = ratingPopupTripRef.current;
+      if (trip?.id) {
+        await markTripAsRated(String(trip.id));
+      }
+      setRatingPopupConfirmed(true);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.routePassengers.all,
+      });
+    },
+    onError: (e) => {
+      Alert.alert(
+        "Erreur",
+        e instanceof Error ? e.message : "Impossible de confirmer le trajet",
+      );
+    },
+  });
+
+  const notDoneTripMutation = useMutation({
+    mutationFn: (routePassengerId: string) =>
+      updateRoutePassengerStatus(routePassengerId, "CANCELLED"),
+    onSuccess: async () => {
+      const trip = ratingPopupTripRef.current;
+      setRatingPopupTrip(null);
+      setRatingPopupConfirmed(false);
+      if (trip?.id) {
+        await markTripAsRated(String(trip.id));
+      }
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.routePassengers.all,
+      });
+      if (trip?.driver?.id) {
+        router.push({
+          pathname: "/(stack)/report",
+          params: {
+            routeId: String(trip.id),
+            driverId: trip.driver.id,
+            driverName: trip.driver.name,
+            from: trip.from,
+            to: trip.to,
+            mode: "non-effectue",
+          },
+        } as never);
+      }
+    },
+    onError: (e) => {
+      Alert.alert(
+        "Erreur",
+        e instanceof Error
+          ? e.message
+          : "Impossible de signaler le trajet non effectué",
       );
     },
   });
@@ -202,10 +266,10 @@ const HomeScreen = () => {
     const allTrips = routePassengersData.map((rp) =>
       mapRoutePassengerToRecentTrip(rp, currentUser?.id),
     );
-    const completedUnrated = allTrips.filter(
+    const completedTrips = allTrips.filter(
       (t) => t.status === "Termine" && t.driver?.id,
     );
-    if (completedUnrated.length === 0) return;
+    if (completedTrips.length === 0) return;
 
     (async () => {
       const [ratedIds, reportedIds] = await Promise.all([
@@ -216,14 +280,16 @@ const HomeScreen = () => {
         ...ratedIds.map(String),
         ...reportedIds.map(String),
       ]);
-      const unrated = completedUnrated.find((t) => !excluded.has(String(t.id)));
-      if (unrated && !ratingPopupTripRef.current) {
-        setRatingPopupTrip(unrated);
-        setRatingPopupStars(0);
-        setRatingPopupComment("");
-        setRatingPopupSubmitted(false);
-        setRatingPopupConfirmed(false);
+      const pending = completedTrips.find((t) => !excluded.has(String(t.id)));
+      if (!pending || ratingPopupTripRef.current) {
+        return;
       }
+      const alreadyConfirmed = pending.passengerApiStatus === "COMPLETED";
+      setRatingPopupTrip(pending);
+      setRatingPopupStars(0);
+      setRatingPopupComment("");
+      setRatingPopupSubmitted(false);
+      setRatingPopupConfirmed(alreadyConfirmed);
     })();
   }, [routePassengersData, currentUser?.id]);
 
@@ -680,178 +746,200 @@ const HomeScreen = () => {
         animationType="fade"
         onRequestClose={() => {}}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="flex-1 justify-center items-center bg-black/50"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          className="flex-1 bg-black/50"
+        >
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: "center",
+              paddingHorizontal: 20,
+              paddingVertical: 24,
+            }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={Keyboard.dismiss}
           >
-            <ScrollView
-              contentContainerClassName="flex-grow justify-center items-center px-5 py-8"
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
+            <View
+              className="self-center p-5 bg-white rounded-3xl items-center"
+              style={{
+                width: Math.min(windowWidth - 40, 400),
+                maxHeight: windowHeight * 0.86,
+              }}
             >
-              <View className="p-6 w-full max-w-md bg-white rounded-3xl items-center">
-            <MaterialCommunityIcons
-              name="check-circle-outline"
-              size={52}
-              color="#10b981"
-              style={{ marginBottom: 12 }}
-            />
-            <Text className="mb-1 text-lg font-bold text-emerald-700">
-              Trajet terminé !
-            </Text>
-            <Text className="mb-1 text-sm text-center text-muted-foreground">
-              {ratingPopupTrip?.from} → {ratingPopupTrip?.to}
-            </Text>
+              <MaterialCommunityIcons
+                name="check-circle-outline"
+                size={48}
+                color="#10b981"
+                style={{ marginBottom: 8 }}
+              />
+              <Text className="mb-1 text-lg font-bold text-emerald-700">
+                Trajet terminé !
+              </Text>
+              <Text
+                className="mb-1 text-sm text-center text-muted-foreground"
+                numberOfLines={3}
+              >
+                {ratingPopupTrip?.from} → {ratingPopupTrip?.to}
+              </Text>
 
-            {!ratingPopupConfirmed ? (
-              <>
-                <Text className="mb-6 text-sm text-center text-muted-foreground">
-                  Voulez-vous confirmer le trajet ?
-                </Text>
-                <View className="flex-row gap-3">
-                  <TouchableOpacity
-                    onPress={() => {
-                      const trip = ratingPopupTrip;
-                      setRatingPopupTrip(null);
-                      if (trip?.driver?.id) {
-                        router.push({
-                          pathname: "/(stack)/report",
-                          params: {
-                            routeId: String(trip.id),
-                            driverId: trip.driver.id,
-                            driverName: trip.driver.name,
-                            from: trip.from,
-                            to: trip.to,
-                            mode: "non-effectue",
-                          },
-                        } as any);
+              {!ratingPopupConfirmed ? (
+                <>
+                  <Text className="mt-2 mb-4 text-sm text-center text-muted-foreground">
+                    Voulez-vous confirmer le trajet ?
+                  </Text>
+                  <View className="flex-row w-full gap-2">
+                    <TouchableOpacity
+                      onPress={() => {
+                        const passengerId = ratingPopupTrip?.routePassengerId;
+                        if (!passengerId) {
+                          Alert.alert(
+                            "Erreur",
+                            "Impossible d'identifier ce trajet.",
+                          );
+                          return;
+                        }
+                        notDoneTripMutation.mutate(passengerId);
+                      }}
+                      disabled={
+                        confirmTripMutation.isPending ||
+                        notDoneTripMutation.isPending
                       }
-                    }}
-                    className="px-4 py-2.5 rounded-xl border border-red-300 bg-red-50"
-                  >
-                    <Text className="text-sm font-semibold text-red-600">
-                      Non effectué
+                      className="flex-1 items-center px-3 py-2.5 rounded-xl border border-red-300 bg-red-50"
+                    >
+                      {notDoneTripMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#dc2626" />
+                      ) : (
+                        <Text className="text-sm font-semibold text-center text-red-600">
+                          Non effectué
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const passengerId = ratingPopupTrip?.routePassengerId;
+                        if (!passengerId) {
+                          Alert.alert(
+                            "Erreur",
+                            "Impossible d'identifier ce trajet.",
+                          );
+                          return;
+                        }
+                        confirmTripMutation.mutate(passengerId);
+                      }}
+                      disabled={
+                        confirmTripMutation.isPending ||
+                        notDoneTripMutation.isPending
+                      }
+                      className="flex-1 items-center px-3 py-2.5 rounded-xl bg-emerald-600"
+                    >
+                      {confirmTripMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <Text className="text-sm font-semibold text-center text-white">
+                          Confirmer
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View className="flex-row flex-wrap gap-1 justify-center items-center px-1 mb-4">
+                    <Text className="text-sm text-center text-muted-foreground">
+                      Comment était votre trajet avec
                     </Text>
-                  </TouchableOpacity>
-                  {false && (
+                    <Text className="text-sm font-semibold text-foreground">
+                      {ratingPopupTrip?.driver?.name}
+                    </Text>
+                    {ratingPopupTrip?.driver?.isVerified ? (
+                      <VerifiedBadge size={16} />
+                    ) : null}
+                    <Text className="text-sm text-muted-foreground">?</Text>
+                  </View>
+                  <StarRating
+                    rating={ratingPopupStars}
+                    size={32}
+                    editable={!ratingPopupSubmitted}
+                    onChange={(stars) => setRatingPopupStars(stars)}
+                  />
+                  <TextInput
+                    value={ratingPopupComment}
+                    onChangeText={setRatingPopupComment}
+                    placeholder="Ajouter une note (optionnel)"
+                    multiline
+                    numberOfLines={3}
+                    className="mt-4 w-full min-h-[72px] rounded-xl border border-gray-200 px-3 py-2 text-sm text-foreground"
+                    style={{ textAlignVertical: "top" }}
+                  />
+                  {!ratingPopupSubmitted ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (
+                          !ratingPopupTrip?.driver?.id ||
+                          ratingPopupStars < 1
+                        ) {
+                          Alert.alert(
+                            "Note requise",
+                            "Veuillez sélectionner au moins une étoile.",
+                          );
+                          return;
+                        }
+                        setRatingPopupSubmitted(true);
+                        ratingMutation.mutate(
+                          {
+                            routeId: String(ratingPopupTrip.id),
+                            toUserId: ratingPopupTrip.driver.id,
+                            stars: ratingPopupStars,
+                            comment: ratingPopupComment.trim() || undefined,
+                          },
+                          {
+                            onSuccess: () => {
+                              setTimeout(() => setRatingPopupTrip(null), 1200);
+                            },
+                            onError: () => {
+                              setRatingPopupSubmitted(false);
+                            },
+                          },
+                        );
+                      }}
+                      disabled={ratingMutation.isPending}
+                      className="mt-4 w-full items-center px-4 py-2.5 rounded-xl bg-emerald-600"
+                    >
+                      {ratingMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <Text className="text-sm font-semibold text-white">
+                          Envoyer la note
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ) : null}
+                  {ratingPopupSubmitted && (
+                    <Text className="mt-3 text-sm font-medium text-emerald-600">
+                      Merci pour votre note !
+                    </Text>
+                  )}
+                  {!ratingPopupSubmitted && (
                     <TouchableOpacity
                       onPress={async () => {
-                        const { markTripAsRated } =
-                          await import("@/src/services/rating.service");
                         await markTripAsRated(String(ratingPopupTrip?.id));
                         setRatingPopupTrip(null);
                       }}
-                      className="px-4 py-2.5 rounded-xl border border-gray-300"
+                      className="mt-3"
                     >
-                      <Text className="text-sm font-semibold text-muted-foreground">
-                        Plus tard
+                      <Text className="text-xs underline text-muted-foreground">
+                        Passer
                       </Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity
-                    onPress={() => setRatingPopupConfirmed(true)}
-                    className="px-4 py-2.5 rounded-xl bg-emerald-600"
-                  >
-                    <Text className="text-sm font-semibold text-white">
-                      Confirmer
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                <View className="flex-row flex-wrap gap-1 justify-center items-center px-2 mb-5">
-                  <Text className="text-sm text-center text-muted-foreground">
-                    Comment était votre trajet avec
-                  </Text>
-                  <Text className="text-sm font-semibold text-foreground">
-                    {ratingPopupTrip?.driver?.name}
-                  </Text>
-                  {ratingPopupTrip?.driver?.isVerified ? (
-                    <VerifiedBadge size={16} />
-                  ) : null}
-                  <Text className="text-sm text-muted-foreground">?</Text>
-                </View>
-                <StarRating
-                  rating={ratingPopupStars}
-                  size={36}
-                  editable={!ratingPopupSubmitted}
-                  onChange={(stars) => setRatingPopupStars(stars)}
-                />
-                <TextInput
-                  value={ratingPopupComment}
-                  onChangeText={setRatingPopupComment}
-                  placeholder="Ajouter une note (optionnel)"
-                  multiline
-                  numberOfLines={3}
-                  className="mt-4 w-full min-h-[84px] rounded-xl border border-gray-200 px-3 py-2 text-sm text-foreground"
-                  style={{ textAlignVertical: "top" }}
-                />
-                {!ratingPopupSubmitted ? (
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (
-                        !ratingPopupTrip?.driver?.id ||
-                        ratingPopupStars < 1
-                      ) {
-                        Alert.alert(
-                          "Note requise",
-                          "Veuillez sélectionner au moins une étoile.",
-                        );
-                        return;
-                      }
-                      setRatingPopupSubmitted(true);
-                      ratingMutation.mutate(
-                        {
-                          routeId: String(ratingPopupTrip.id),
-                          toUserId: ratingPopupTrip.driver.id,
-                          stars: ratingPopupStars,
-                          comment: ratingPopupComment.trim() || undefined,
-                        },
-                        {
-                          onSuccess: () => {
-                            setTimeout(() => setRatingPopupTrip(null), 1200);
-                          },
-                          onError: () => {
-                            setRatingPopupSubmitted(false);
-                          },
-                        },
-                      );
-                    }}
-                    className="mt-4 px-4 py-2.5 rounded-xl bg-emerald-600"
-                  >
-                    <Text className="text-sm font-semibold text-white">
-                      Envoyer la note
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-                {ratingPopupSubmitted && (
-                  <Text className="mt-3 text-sm font-medium text-emerald-600">
-                    Merci pour votre note !
-                  </Text>
-                )}
-                {!ratingPopupSubmitted && (
-                  <TouchableOpacity
-                    onPress={async () => {
-                      const { markTripAsRated } =
-                        await import("@/src/services/rating.service");
-                      await markTripAsRated(String(ratingPopupTrip?.id));
-                      setRatingPopupTrip(null);
-                    }}
-                    className="mt-4"
-                  >
-                    <Text className="text-xs underline text-muted-foreground">
-                      Passer
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-              </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </TouchableWithoutFeedback>
+                </>
+              )}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       <View className="flex-1 bg-background">

@@ -1,5 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
-import { ActionSheetIOS, Alert, InteractionManager, Platform } from "react-native";
+import { ActionSheetIOS, Alert, Platform } from "react-native";
 
 export type PickedMedia = {
   uri: string;
@@ -19,16 +19,13 @@ const IMAGE_PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   exif: false,
 };
 
+/** Laisse le time à l’ActionSheet / Alert de se fermer avant d’ouvrir un autre écran natif. */
 const waitForNativeDismiss = (): Promise<void> =>
   new Promise((resolve) => {
-    InteractionManager.runAfterInteractions(() => {
-      setTimeout(resolve, Platform.OS === "ios" ? 650 : 80);
-    });
+    setTimeout(resolve, Platform.OS === "ios" ? 700 : 80);
   });
 
-const toPickedMedia = (
-  asset: ImagePicker.ImagePickerAsset,
-): PickedMedia => ({
+const toPickedMedia = (asset: ImagePicker.ImagePickerAsset): PickedMedia => ({
   uri: asset.uri,
   fileName: asset.fileName ?? undefined,
   mimeType: asset.mimeType ?? undefined,
@@ -57,7 +54,8 @@ const launchLibrary = async (): Promise<PickedMedia | null> => {
     );
     return null;
   }
-  const result = await ImagePicker.launchImageLibraryAsync(IMAGE_PICKER_OPTIONS);
+  const result =
+    await ImagePicker.launchImageLibraryAsync(IMAGE_PICKER_OPTIONS);
   const asset = result.canceled ? undefined : result.assets?.[0];
   return asset?.uri ? toPickedMedia(asset) : null;
 };
@@ -132,7 +130,7 @@ const askSource = (): Promise<MediaSource | null> =>
       ActionSheetIOS.showActionSheetWithOptions(
         {
           title: "Ajouter un document",
-          options: ["Annuler", "Appareil photo", "Photothèque", "Fichiers"],
+          options: ["Annuler", "Appareil photo", "Photothèque"],
           cancelButtonIndex: 0,
         },
         (index) => {
@@ -152,7 +150,7 @@ const askSource = (): Promise<MediaSource | null> =>
       "Ajouter un document",
       "Choisissez une source",
       [
-        { text: "Fichiers", onPress: () => finish("files") },
+        /* { text: "Fichiers", onPress: () => finish("files") }, */
         { text: "Photothèque", onPress: () => finish("library") },
         { text: "Appareil photo", onPress: () => finish("camera") },
       ],

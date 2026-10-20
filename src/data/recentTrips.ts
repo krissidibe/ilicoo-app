@@ -49,6 +49,8 @@ export type RecentTrip = {
   otherPassengerNames?: string[];
   /** Peut annuler (PENDING ou ACCEPTED) */
   canCancel?: boolean;
+  /** Statut API du passager (ACCEPTED = à confirmer, COMPLETED = déjà confirmé) */
+  passengerApiStatus?: "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED" | "COMPLETED";
 };
 
 export const recentTrips: RecentTrip[] = [

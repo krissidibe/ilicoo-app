@@ -5,6 +5,7 @@ export type CreateReportParams = {
   driverId: string;
   reason: string;
   description?: string;
+  tripNotCompleted?: boolean;
 };
 
 export const createReport = async (params: CreateReportParams) => {

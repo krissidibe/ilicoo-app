@@ -62,7 +62,7 @@ export const requestRoute = async (
 
 export const updateRoutePassengerStatus = async (
   id: string,
-  status: "ACCEPTED" | "REJECTED"
+  status: "ACCEPTED" | "REJECTED" | "CANCELLED" | "COMPLETED"
 ) => {
   const res = await apiFetch(`route-passengers/${id}`, {
     method: "PATCH",

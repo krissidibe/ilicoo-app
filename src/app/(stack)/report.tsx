@@ -96,6 +96,7 @@ const ReportScreen = () => {
       driverId: params.driverId,
       reason: selectedReason,
       description: description.trim() || undefined,
+      tripNotCompleted: isNonEffectueMode,
     });
   };
 
