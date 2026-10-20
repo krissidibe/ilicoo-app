@@ -49,36 +49,22 @@ export function isArrivalDue(
   return now.getTime() >= arrival.getTime();
 }
 
-const timestampOf = (
-  item: { departureAt?: string | null; createdAt?: string | null },
-): number => {
-  if (item.departureAt) {
-    const t = new Date(item.departureAt).getTime();
-    if (!Number.isNaN(t)) {
-      return t;
-    }
-  }
-  if (item.createdAt) {
-    const t = new Date(item.createdAt).getTime();
-    if (!Number.isNaN(t)) {
-      return t;
-    }
-  }
-  return 0;
-};
-
 export function compareDepartureAsc(
-  a: { departureAt?: string | null; createdAt?: string | null },
-  b: { departureAt?: string | null; createdAt?: string | null },
+  a: { departureAt?: string | null },
+  b: { departureAt?: string | null },
 ): number {
-  return timestampOf(a) - timestampOf(b);
+  const ta = a.departureAt ? new Date(a.departureAt).getTime() : 0;
+  const tb = b.departureAt ? new Date(b.departureAt).getTime() : 0;
+  const na = Number.isNaN(ta) ? 0 : ta;
+  const nb = Number.isNaN(tb) ? 0 : tb;
+  return na - nb;
 }
 
 export function compareDepartureDesc(
-  a: { departureAt?: string | null; createdAt?: string | null },
-  b: { departureAt?: string | null; createdAt?: string | null },
+  a: { departureAt?: string | null },
+  b: { departureAt?: string | null },
 ): number {
-  return timestampOf(b) - timestampOf(a);
+  return compareDepartureAsc(b, a);
 }
 
 /** Plus récent au plus ancien (date de publication / création). */
