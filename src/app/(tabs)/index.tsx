@@ -266,10 +266,13 @@ const HomeScreen = () => {
     const allTrips = routePassengersData.map((rp) =>
       mapRoutePassengerToRecentTrip(rp, currentUser?.id),
     );
-    const completedTrips = allTrips.filter(
-      (t) => t.status === "Termine" && t.driver?.id,
+    const pendingConfirm = allTrips.filter(
+      (t) =>
+        t.status === "Termine" &&
+        t.driver?.id &&
+        t.passengerApiStatus === "ACCEPTED",
     );
-    if (completedTrips.length === 0) return;
+    if (pendingConfirm.length === 0) return;
 
     (async () => {
       const [ratedIds, reportedIds] = await Promise.all([
@@ -280,16 +283,15 @@ const HomeScreen = () => {
         ...ratedIds.map(String),
         ...reportedIds.map(String),
       ]);
-      const pending = completedTrips.find((t) => !excluded.has(String(t.id)));
+      const pending = pendingConfirm.find((t) => !excluded.has(String(t.id)));
       if (!pending || ratingPopupTripRef.current) {
         return;
       }
-      const alreadyConfirmed = pending.passengerApiStatus === "COMPLETED";
       setRatingPopupTrip(pending);
       setRatingPopupStars(0);
       setRatingPopupComment("");
       setRatingPopupSubmitted(false);
-      setRatingPopupConfirmed(alreadyConfirmed);
+      setRatingPopupConfirmed(false);
     })();
   }, [routePassengersData, currentUser?.id]);
 
