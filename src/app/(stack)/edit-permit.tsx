@@ -2,18 +2,19 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Text } from "@/src/components/ui/text";
 import { VerifiedBadge } from "@/src/components/VerifiedBadge";
+import { resolvePublicAssetUrl } from "@/src/lib/public-asset-url";
 import { getUser, updateProfile } from "@/src/services/user.service";
 import { uploadImageFile } from "@/src/services/upload.service";
 import { pickMediaFromDevice } from "@/src/utils/pickMedia";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   TouchableOpacity,
   View,
@@ -39,16 +40,23 @@ const DocumentUploadField = ({
   uploading: boolean;
   onPick: () => Promise<void>;
 }) => {
-  const isRemoteUrl = value.startsWith("http://") || value.startsWith("https://");
+  const previewUrl = resolvePublicAssetUrl(value);
+  const isPdf = value.toLowerCase().split("?")[0]?.endsWith(".pdf") ?? false;
 
   return (
     <View>
       <Text className="mb-1 text-xs text-muted-foreground">{label}</Text>
-      {isRemoteUrl ? (
+      {previewUrl && isPdf ? (
+        <View className="flex-row items-center p-4 mb-2 rounded-xl bg-gray-100">
+          <Ionicons name="document-text-outline" size={22} color="#6366f1" />
+          <Text className="ml-2 text-sm">Document PDF envoyé</Text>
+        </View>
+      ) : previewUrl ? (
         <Image
-          source={{ uri: value }}
-          className="mb-2 w-full h-36 rounded-xl bg-gray-100"
-          resizeMode="cover"
+          source={{ uri: previewUrl }}
+          style={{ width: "100%", height: 144, borderRadius: 12, marginBottom: 8 }}
+          className="bg-gray-100"
+          contentFit="cover"
         />
       ) : null}
       <TouchableOpacity
@@ -94,6 +102,7 @@ const EditPermitScreen = () => {
     control,
     handleSubmit,
     setValue,
+    getValues,
     formState: { errors, isDirty },
     reset,
   } = useForm<PermitFormValues>({
@@ -116,21 +125,42 @@ const EditPermitScreen = () => {
     }
   }, [user, reset]);
 
+  const persistDocuments = async (
+    values: PermitFormValues,
+  ): Promise<void> => {
+    await updateProfile({
+      permitNumber: values.permitNumber || null,
+      permitPhoto: values.permitPhoto || null,
+      permitPhotoBack: values.permitPhotoBack || null,
+      identityPhoto: values.identityPhoto || null,
+    });
+    await queryClient.invalidateQueries({ queryKey: ["user"] });
+  };
+
   const handlePickDocument = async (
     field: keyof PermitFormValues,
   ): Promise<void> => {
+    if (uploadingField) {
+      return;
+    }
     const picked = await pickMediaFromDevice();
     if (!picked?.uri) {
       return;
     }
     setUploadingField(field);
     try {
-      const uploadedUrl = await uploadImageFile(picked.uri);
+      const uploadedUrl = await uploadImageFile(picked.uri, {
+        fileName: picked.fileName,
+        mimeType: picked.mimeType,
+        folder: "documents",
+      });
       setValue(field, uploadedUrl, {
         shouldDirty: true,
         shouldValidate: true,
         shouldTouch: true,
       });
+      const nextValues = { ...getValues(), [field]: uploadedUrl };
+      await persistDocuments(nextValues);
     } catch (error) {
       Alert.alert(
         "Erreur",
@@ -291,8 +321,10 @@ const EditPermitScreen = () => {
       <View className="absolute right-0 bottom-0 left-0 px-5 pt-3 pb-5 bg-white border-t border-gray">
         <Button
           className="rounded-xl"
-          onPress={onSubmit}
-          disabled={!isDirty || updateMutation.isPending}
+          onPress={() => void onSubmit()}
+          disabled={
+            !isDirty || updateMutation.isPending || uploadingField !== null
+          }
         >
           <Text>
             {updateMutation.isPending ? "Enregistrement..." : "Enregistrer"}

@@ -25,6 +25,7 @@ const resolveBaseUrl = (): string => {
   if (devHost) {
     return `http://${devHost}:${LOCAL_API_PORT}`;
   }
+  console.log("http://localhost:3000");
 
   return "http://localhost:3000";
 };

@@ -4,6 +4,7 @@ import { PassengerTripDetailBody } from "@/src/components/passenger/PassengerTri
 import { Text } from "@/src/components/ui/text";
 import type { MyPublishedTrip } from "@/src/data/myPublishedTrips";
 import type { RecentTrip } from "@/src/data/recentTrips";
+import { useTripMapSheets } from "@/src/hooks/useTripMapSheets";
 import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
 import { queryKeys } from "@/src/services/queryKeys";
@@ -15,12 +16,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
-import {
-  ActivityIndicator,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { useTripMapSheets } from "@/src/hooks/useTripMapSheets";
+import { ActivityIndicator, TouchableOpacity, View } from "react-native";
 
 type ViewMode = "passenger" | "driver";
 
@@ -135,7 +131,7 @@ const TripDetailScreen = () => {
 
     return (
       <View className="flex-1 bg-background">
-        <HeaderApp title="Détails du trajet" />
+        <HeaderApp title="Détails du trajet" showBack />
         {isLoading ? (
           <View className="flex-1 justify-center items-center">
             <ActivityIndicator size="large" color="#6366f1" />
@@ -172,7 +168,7 @@ const TripDetailScreen = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <HeaderApp title="Détails du trajet" />
+      <HeaderApp title="Détails du trajet" showBack />
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#6366f1" />

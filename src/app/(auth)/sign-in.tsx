@@ -5,6 +5,7 @@ import CountryCodeSheet, {
   type CountryCodeSheetRef,
 } from "@/src/data/countryCodeSheet";
 import { countryCodes, type CountryCode } from "@/src/data/countryCodes";
+import { getApiV1BaseUrl } from "@/src/lib/api-base-url";
 import { authClient } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
 import { useAuthStore } from "@/src/store/auth.store";
@@ -13,7 +14,7 @@ import { Label } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -195,10 +196,10 @@ const SignIn = () => {
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     autoCorrect={false}
-                    className="w-full pr-12 focus:border-primary"
+                    className="pr-12 w-full focus:border-primary"
                   />
                   <TouchableOpacity
-                    className="absolute top-0 right-3 bottom-0 justify-center"
+                    className="absolute top-0 bottom-0 right-3 justify-center"
                     onPress={() => setShowPassword((current) => !current)}
                     accessibilityRole="button"
                     accessibilityLabel={
@@ -229,6 +230,9 @@ const SignIn = () => {
               )}
               <Button
                 onPress={async () => {
+                  console.log("====================================");
+                  console.log(getApiV1BaseUrl());
+                  console.log("====================================");
                   const normalizedEmail = email.trim().toLowerCase();
                   if (
                     normalizedEmail.length === 0 ||
@@ -239,7 +243,7 @@ const SignIn = () => {
                     );
                     return;
                   }
-                    setOtpMessage("");
+                  setOtpMessage("");
                   try {
                     const response = await authClient.signIn.email({
                       email: normalizedEmail,
@@ -247,7 +251,8 @@ const SignIn = () => {
                     });
                     if (response?.error) {
                       setOtpMessage(
-                        response.error.message ?? "Email ou mot de passe incorrect",
+                        response.error.message ??
+                          "Email ou mot de passe incorrect",
                       );
                       return;
                     }
@@ -264,7 +269,10 @@ const SignIn = () => {
                   } catch (e) {
                     const message =
                       e instanceof Error ? e.message : "Erreur réseau";
-                    if (message.includes("502") || message.includes("Bad Gateway")) {
+                    if (
+                      message.includes("502") ||
+                      message.includes("Bad Gateway")
+                    ) {
                       setOtpMessage(
                         "Serveur indisponible (502). Le backend de production est arrêté.",
                       );

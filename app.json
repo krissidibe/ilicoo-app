@@ -7,8 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "ilicooapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+
     "ios": {
+      "deploymentTarget": "16.4",
       "supportsTablet": true,
       "bundleIdentifier": "com.ilicoo.dev",
       "infoPlist": {
@@ -24,7 +25,7 @@
         }
       },
       "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        "googleMapsApiKey": "AIzaSyArA7IX33qpsbqwaHZZKN5ydttVJJ2-BRY"
       },
       "appleTeamId": "T9PTGQX59M"
     },
@@ -35,7 +36,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
+      // "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "config": {
         "googleMaps": {
@@ -70,6 +71,13 @@
       ],
       "@maplibre/maplibre-react-native",
       [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "AIzaSyArA7IX33qpsbqwaHZZKN5ydttVJJ2-BRY",
+          "iosGoogleMapsApiKey": "AIzaSyArA7IX33qpsbqwaHZZKN5ydttVJJ2-BRY"
+        }
+      ],
+      [
         "expo-maps",
         {
           "requestLocationPermission": true,
@@ -87,9 +95,14 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "L’application accède à vos photos pour ajouter une photo de votre véhicule."
+          "photosPermission": "L’application accède à vos photos pour ajouter vos documents et photos de véhicule.",
+          "cameraPermission": "L’application utilise l’appareil photo pour photographier vos documents."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      "expo-image",
+      "expo-status-bar"
     ],
     "extra": {
       "googleMapsApiKey": "AIzaSyArA7IX33qpsbqwaHZZKN5ydttVJJ2-BRY"

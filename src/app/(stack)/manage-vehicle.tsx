@@ -7,6 +7,7 @@ import { queryKeys } from "@/src/services/queryKeys";
 import { uploadImageFile } from "@/src/services/upload.service";
 import { getUser } from "@/src/services/user.service";
 import { createVehicle, getVehicules, updateVehicle } from "@/src/services/vehicle.service";
+import { pickMediaFromDevice } from "@/src/utils/pickMedia";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
@@ -93,6 +94,9 @@ const ManageVehicleScreen = () => {
     null,
   );
   const [isSending, setIsSending] = React.useState(false);
+  const [uploadingDocument, setUploadingDocument] = React.useState<
+    "licensePhoto" | "permitPhotoBack" | "identityPhoto" | null
+  >(null);
 
   const openVehiclePhotoLibrary = React.useCallback(async () => {
     try {
@@ -151,6 +155,42 @@ const ManageVehicleScreen = () => {
     },
     mode: "onChange",
   });
+
+  const pickAndUploadDocument = React.useCallback(
+    async (
+      field: "licensePhoto" | "permitPhotoBack" | "identityPhoto",
+    ): Promise<void> => {
+      if (uploadingDocument) {
+        return;
+      }
+      const picked = await pickMediaFromDevice();
+      if (!picked?.uri) {
+        return;
+      }
+      setUploadingDocument(field);
+      try {
+        const uploadedUrl = await uploadImageFile(picked.uri, {
+          fileName: picked.fileName,
+          mimeType: picked.mimeType,
+          folder: "documents",
+        });
+        setValue(field, uploadedUrl, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      } catch (error) {
+        Alert.alert(
+          "Erreur",
+          error instanceof Error
+            ? error.message
+            : "Impossible d'envoyer le fichier",
+        );
+      } finally {
+        setUploadingDocument(null);
+      }
+    },
+    [setValue, uploadingDocument],
+  );
 
   const vehicleType = watch("vehicleType");
   const maxPassenger = watch("maximumPassenger");
@@ -833,9 +873,10 @@ const ManageVehicleScreen = () => {
                   </Text>
                   <TouchableOpacity
                     className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
+                    disabled={uploadingDocument !== null}
                     onPress={() => {
                       if (value) onChange("");
-                      else onChange("permis_photo_01.jpg");
+                      else void pickAndUploadDocument("licensePhoto");
                     }}
                   >
                     <View className="flex-row items-center">
@@ -849,7 +890,11 @@ const ManageVehicleScreen = () => {
                         color={value ? "#10b981" : "#6366f1"}
                       />
                       <Text className="ml-2 text-sm">
-                        {value ? value : "Uploader votre photo"}
+                        {uploadingDocument === "licensePhoto"
+                          ? "Envoi en cours..."
+                          : value
+                            ? "Document ajouté"
+                            : "Uploader votre photo"}
                       </Text>
                     </View>
                     <Text className="text-xs font-semibold text-primary">
@@ -870,9 +915,10 @@ const ManageVehicleScreen = () => {
                   </Text>
                   <TouchableOpacity
                     className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
+                    disabled={uploadingDocument !== null}
                     onPress={() => {
                       if (value) onChange("");
-                      else onChange("permis_verso_01.jpg");
+                      else void pickAndUploadDocument("permitPhotoBack");
                     }}
                   >
                     <View className="flex-row items-center">
@@ -886,7 +932,11 @@ const ManageVehicleScreen = () => {
                         color={value ? "#10b981" : "#6366f1"}
                       />
                       <Text className="ml-2 text-sm">
-                        {value ? value : "Uploader votre photo"}
+                        {uploadingDocument === "permitPhotoBack"
+                          ? "Envoi en cours..."
+                          : value
+                            ? "Document ajouté"
+                            : "Uploader votre photo"}
                       </Text>
                     </View>
                     <Text className="text-xs font-semibold text-primary">
@@ -907,9 +957,10 @@ const ManageVehicleScreen = () => {
                   </Text>
                   <TouchableOpacity
                     className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
+                    disabled={uploadingDocument !== null}
                     onPress={() => {
                       if (value) onChange("");
-                      else onChange("identity_photo_01.jpg");
+                      else void pickAndUploadDocument("identityPhoto");
                     }}
                   >
                     <View className="flex-row items-center">
@@ -923,7 +974,11 @@ const ManageVehicleScreen = () => {
                         color={value ? "#10b981" : "#6366f1"}
                       />
                       <Text className="ml-2 text-sm">
-                        {value ? value : "Uploader votre photo"}
+                        {uploadingDocument === "identityPhoto"
+                          ? "Envoi en cours..."
+                          : value
+                            ? "Document ajouté"
+                            : "Uploader votre photo"}
                       </Text>
                     </View>
                     <Text className="text-xs font-semibold text-primary">

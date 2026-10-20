@@ -42,6 +42,8 @@ export type VehicleApi = {
   /** URL publique, optionnelle */
   photo: string | null;
   default: boolean;
+  /** Nombre de trajets publiés avec ce véhicule */
+  routesCount?: number;
   createdAt: string;
   updatedAt: string;
 };

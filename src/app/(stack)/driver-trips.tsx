@@ -6,7 +6,7 @@ import type {
 } from "@/src/data/myPublishedTrips";
 import { useTripMapSheets } from "@/src/hooks/useTripMapSheets";
 import { mapRouteToMyPublishedTrip } from "@/src/lib/mappers";
-import { compareCreatedAtDesc } from "@/src/lib/tripSchedule";
+import { compareDepartureDesc } from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { queryKeys } from "@/src/services/queryKeys";
 import { getMyRoutes } from "@/src/services/route.service";
@@ -73,7 +73,8 @@ const DriverTripsScreen = () => {
   const filteredTrips = React.useMemo(() => {
     const statuses = activeTab === "Avenir" ? AVENIR_STATUSES : PASSE_STATUSES;
     const filtered = allTrips.filter((trip) => statuses.includes(trip.status));
-    return [...filtered].sort(compareCreatedAtDesc);
+    // Plus récent (date de départ) → plus ancien
+    return [...filtered].sort((a, b) => compareDepartureDesc(a, b));
   }, [allTrips, activeTab]);
 
   const updateStatusMutation = useMutation({

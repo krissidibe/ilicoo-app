@@ -27,6 +27,7 @@ import {
 } from "@/src/services/route.service";
 import { updateRoutePassengerStatus } from "@/src/services/routePassenger.service";
 import {
+  deleteVehicle,
   getVehicules,
   setDefaultVehicle,
 } from "@/src/services/vehicle.service";
@@ -52,6 +53,7 @@ type Vehicule = {
   NM: string;
   maximumPassenger: number;
   type?: "CAR" | "MOTORCYCLE";
+  routesCount: number;
 };
 
 const statusConfig = (
@@ -179,6 +181,45 @@ const Setting = () => {
       close();
     },
   });
+
+  const deleteVehicleMutation = useMutation({
+    mutationFn: deleteVehicle,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicules.all });
+      close();
+    },
+    onError: (error) => {
+      Alert.alert(
+        "Suppression impossible",
+        error instanceof Error ? error.message : "Une erreur est survenue",
+      );
+    },
+  });
+
+  const confirmDeleteVehicule = (vehicule: Vehicule): void => {
+    if (vehicule.routesCount > 0) {
+      Alert.alert(
+        "Suppression impossible",
+        "Ce véhicule a déjà servi à un trajet. Seuls les véhicules à 0 trajet peuvent être supprimés.",
+      );
+      return;
+    }
+    close();
+    setTimeout(() => {
+      Alert.alert(
+        "Supprimer le véhicule",
+        `« ${vehicule.name} » n'a aucun trajet. Voulez-vous vraiment le supprimer ? Cette action est irréversible.`,
+        [
+          { text: "Annuler", style: "cancel" },
+          {
+            text: "Supprimer",
+            style: "destructive",
+            onPress: () => deleteVehicleMutation.mutate(vehicule.id),
+          },
+        ],
+      );
+    }, 280);
+  };
 
   const updateStatusMutation = useMutation({
     mutationFn: ({
@@ -331,6 +372,10 @@ const Setting = () => {
             <Text className="font-semibold">Nombre de places: </Text>
             {vehicule.maximumPassenger}
           </Text>
+          <Text className="text-sm">
+            <Text className="font-semibold">Trajets effectués: </Text>
+            {vehicule.routesCount}
+          </Text>
         </View>
 
         <Button
@@ -346,8 +391,22 @@ const Setting = () => {
               : "Définir comme véhicule par défaut"}
           </Text>
         </Button>
+
+        {vehicule.routesCount === 0 ? (
+          <Button
+            variant="destructive"
+            className="mt-3 rounded-xl"
+            onPress={() => confirmDeleteVehicule(vehicule)}
+          >
+            <Text>Supprimer ce véhicule</Text>
+          </Button>
+        ) : (
+          <Text className="mt-3 text-xs text-center text-muted-foreground">
+            Ce véhicule a déjà servi à un trajet : il ne peut pas être supprimé.
+          </Text>
+        )}
       </View>,
-      ["40%"],
+      ["58%"],
     );
   };
 
@@ -857,45 +916,69 @@ const Setting = () => {
                       </View>
                     ) : (
                       vehicules.map((vehicule) => (
-                        <TouchableOpacity
-                          onPress={() => openVehiculeModal(vehicule)}
+                        <View
                           className={cn(
-                            "flex-row items-center rounded-2xl border border-gray p-4 opacity-60",
-                            vehicule.default &&
-                              "border-primary bg-primary/5 opacity-100",
+                            "flex-row items-center rounded-2xl border border-gray p-4",
+                            vehicule.default
+                              ? "border-primary bg-primary/5"
+                              : "opacity-80",
                           )}
                           key={vehicule.id}
                         >
-                          <View className="justify-center items-center bg-gray-200 rounded-xl size-12">
-                            <Ionicons
-                              name={
-                                vehicule.type === "MOTORCYCLE"
-                                  ? "bicycle-outline"
-                                  : "car-sport-outline"
-                              }
-                              size={24}
-                              color="black"
-                            />
-                          </View>
-                          <View className="flex-1 pl-3">
-                            <Text className="text-base font-semibold">
-                              {vehicule.name}
-                            </Text>
-                            <Text className="text-xs opacity-50">
-                              {vehicule.default
-                                ? "Véhicule par défaut"
-                                : "Véhicule secondaire"}
-                            </Text>
-                          </View>
+                          <TouchableOpacity
+                            className="flex-row flex-1 items-center"
+                            activeOpacity={0.8}
+                            onPress={() => openVehiculeModal(vehicule)}
+                          >
+                            <View className="justify-center items-center bg-gray-200 rounded-xl size-12">
+                              <Ionicons
+                                name={
+                                  vehicule.type === "MOTORCYCLE"
+                                    ? "bicycle-outline"
+                                    : "car-sport-outline"
+                                }
+                                size={24}
+                                color="black"
+                              />
+                            </View>
+                            <View className="flex-1 pl-3">
+                              <Text className="text-base font-semibold">
+                                {vehicule.name}
+                              </Text>
+                              <Text className="text-xs opacity-50">
+                                {vehicule.default
+                                  ? "Véhicule par défaut"
+                                  : "Véhicule secondaire"}
+                                {" · "}
+                                {vehicule.routesCount} trajet
+                                {vehicule.routesCount > 1 ? "s" : ""}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+
+                          {vehicule.routesCount === 0 ? (
+                            <TouchableOpacity
+                              hitSlop={12}
+                              className="p-2 ml-1"
+                              disabled={deleteVehicleMutation.isPending}
+                              onPress={() => confirmDeleteVehicule(vehicule)}
+                            >
+                              <Ionicons
+                                name="trash-outline"
+                                size={20}
+                                color="#dc2626"
+                              />
+                            </TouchableOpacity>
+                          ) : null}
 
                           {vehicule.default ? (
-                            <View className="px-2 py-1 rounded-full bg-primary/15">
+                            <View className="px-2 py-1 ml-1 rounded-full bg-primary/15">
                               <Text className="text-xs font-medium text-primary">
                                 Sélectionné
                               </Text>
                             </View>
                           ) : null}
-                        </TouchableOpacity>
+                        </View>
                       ))
                     )}
                   </View>

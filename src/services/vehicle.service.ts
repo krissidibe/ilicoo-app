@@ -74,6 +74,17 @@ export const setDefaultVehicle = async (vehicleId: string) => {
   return json.data;
 };
 
+export const deleteVehicle = async (
+  vehicleId: string,
+): Promise<{ id: string }> => {
+  const res = await apiFetch(`vehicules/${vehicleId}`, { method: "DELETE" });
+  const json = res as { success: boolean; data?: { id: string }; error?: string };
+  if (!json.success || json.data === undefined) {
+    throw new Error(json.error ?? "Erreur API");
+  }
+  return json.data;
+};
+
 export type UpdateVehicleParams = {
   type?: "voiture" | "moto";
   vehicleName?: string;

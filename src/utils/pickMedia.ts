@@ -1,35 +1,51 @@
 import * as ImagePicker from "expo-image-picker";
-import { Alert, Platform } from "react-native";
+import { ActionSheetIOS, Alert, InteractionManager, Platform } from "react-native";
 
 export type PickedMedia = {
   uri: string;
   fileName?: string;
+  mimeType?: string;
 };
+
+type MediaSource = "camera" | "library" | "files";
+
+const IMAGE_QUALITY = 0.8;
+
+const IMAGE_PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
+  mediaTypes: ["images"],
+  allowsEditing: false,
+  allowsMultipleSelection: false,
+  quality: IMAGE_QUALITY,
+  exif: false,
+};
+
+const waitForNativeDismiss = (): Promise<void> =>
+  new Promise((resolve) => {
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(resolve, Platform.OS === "ios" ? 650 : 80);
+    });
+  });
+
+const toPickedMedia = (
+  asset: ImagePicker.ImagePickerAsset,
+): PickedMedia => ({
+  uri: asset.uri,
+  fileName: asset.fileName ?? undefined,
+  mimeType: asset.mimeType ?? undefined,
+});
 
 const launchCamera = async (): Promise<PickedMedia | null> => {
   const perm = await ImagePicker.requestCameraPermissionsAsync();
   if (!perm.granted) {
     Alert.alert(
       "Permission requise",
-      "Autorisez l'accès à l'appareil photo pour continuer.",
+      "Autorisez l'accès à l'appareil photo dans les réglages pour continuer.",
     );
     return null;
   }
-  if (Platform.OS === "android") {
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
-  }
-  const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ["images"],
-    allowsEditing: false,
-    quality: 0.85,
-  });
-  if (result.canceled || !result.assets?.[0]?.uri) {
-    return null;
-  }
-  return {
-    uri: result.assets[0].uri,
-    fileName: result.assets[0].fileName ?? undefined,
-  };
+  const result = await ImagePicker.launchCameraAsync(IMAGE_PICKER_OPTIONS);
+  const asset = result.canceled ? undefined : result.assets?.[0];
+  return asset?.uri ? toPickedMedia(asset) : null;
 };
 
 const launchLibrary = async (): Promise<PickedMedia | null> => {
@@ -37,41 +53,37 @@ const launchLibrary = async (): Promise<PickedMedia | null> => {
   if (!perm.granted) {
     Alert.alert(
       "Permission requise",
-      "Autorisez l'accès à la photothèque pour continuer.",
+      "Autorisez l'accès à la photothèque dans les réglages pour continuer.",
     );
     return null;
   }
-  if (Platform.OS === "android") {
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
-  }
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ["images"],
-    allowsEditing: false,
-    quality: 0.85,
-  });
-  if (result.canceled || !result.assets?.[0]?.uri) {
-    return null;
-  }
-  return {
-    uri: result.assets[0].uri,
-    fileName: result.assets[0].fileName ?? undefined,
-  };
+  const result = await ImagePicker.launchImageLibraryAsync(IMAGE_PICKER_OPTIONS);
+  const asset = result.canceled ? undefined : result.assets?.[0];
+  return asset?.uri ? toPickedMedia(asset) : null;
 };
 
 const launchDocumentPicker = async (): Promise<PickedMedia | null> => {
   try {
     const DocumentPicker = await import("expo-document-picker");
     const result = await DocumentPicker.getDocumentAsync({
-      type: ["image/*", "application/pdf"],
+      type: [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/heic",
+        "application/pdf",
+      ],
       copyToCacheDirectory: true,
       multiple: false,
     });
-    if (result.canceled || !result.assets?.[0]?.uri) {
+    const asset = result.canceled ? undefined : result.assets?.[0];
+    if (!asset?.uri) {
       return null;
     }
     return {
-      uri: result.assets[0].uri,
-      fileName: result.assets[0].name,
+      uri: asset.uri,
+      fileName: asset.name,
+      mimeType: asset.mimeType ?? undefined,
     };
   } catch {
     Alert.alert(
@@ -82,27 +94,76 @@ const launchDocumentPicker = async (): Promise<PickedMedia | null> => {
   }
 };
 
-export const pickMediaFromDevice = (): Promise<PickedMedia | null> =>
+const launchSource = async (
+  source: MediaSource,
+): Promise<PickedMedia | null> => {
+  await waitForNativeDismiss();
+  try {
+    if (source === "camera") {
+      return await launchCamera();
+    }
+    if (source === "library") {
+      return await launchLibrary();
+    }
+    return await launchDocumentPicker();
+  } catch (error) {
+    Alert.alert(
+      "Erreur",
+      error instanceof Error
+        ? error.message
+        : "Impossible d'ouvrir le sélecteur de fichiers",
+    );
+    return null;
+  }
+};
+
+const askSource = (): Promise<MediaSource | null> =>
   new Promise((resolve) => {
-    Alert.alert("Ajouter un document", "Choisissez une source", [
-      { text: "Annuler", style: "cancel", onPress: () => resolve(null) },
-      {
-        text: "Appareil photo",
-        onPress: () => {
-          void launchCamera().then(resolve);
+    let settled = false;
+    const finish = (source: MediaSource | null): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(source);
+    };
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: "Ajouter un document",
+          options: ["Annuler", "Appareil photo", "Photothèque", "Fichiers"],
+          cancelButtonIndex: 0,
         },
-      },
-      {
-        text: "Photothèque",
-        onPress: () => {
-          void launchLibrary().then(resolve);
+        (index) => {
+          const sources: (MediaSource | null)[] = [
+            null,
+            "camera",
+            "library",
+            "files",
+          ];
+          finish(sources[index] ?? null);
         },
-      },
-      {
-        text: "Fichiers",
-        onPress: () => {
-          void launchDocumentPicker().then(resolve);
-        },
-      },
-    ]);
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Ajouter un document",
+      "Choisissez une source",
+      [
+        { text: "Fichiers", onPress: () => finish("files") },
+        { text: "Photothèque", onPress: () => finish("library") },
+        { text: "Appareil photo", onPress: () => finish("camera") },
+      ],
+      { cancelable: true, onDismiss: () => finish(null) },
+    );
   });
+
+export const pickMediaFromDevice = async (): Promise<PickedMedia | null> => {
+  const source = await askSource();
+  if (!source) {
+    return null;
+  }
+  return launchSource(source);
+};

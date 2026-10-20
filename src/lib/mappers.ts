@@ -302,4 +302,5 @@ export const mapVehicleToUi = (v: VehicleApi) => ({
   NM: v.plateNumber ?? "—",
   maximumPassenger: v.maximumPassenger,
   type: v.type,
+  routesCount: v.routesCount ?? 0,
 });
