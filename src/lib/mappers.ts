@@ -124,7 +124,7 @@ export const mapRoutePassengerToRecentTrip = (rp: RoutePassengerApi, currentUser
     price: myPrice,
     status,
     distanceKm: route?.distanceKm,
-    departureAt: route?.departureAt ?? null,
+    departureAt: rp.departureAt ?? route?.departureAt ?? null,
     vehicleName,
     vehicleType: routeVehicleType,
     vehicleColor: route?.vehicle?.color ?? null,

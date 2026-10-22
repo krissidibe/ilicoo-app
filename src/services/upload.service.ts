@@ -9,6 +9,8 @@ export type UploadImageOptions = {
   folder?: UploadFolder;
 };
 
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
 const MIME_BY_EXTENSION: Record<string, string> = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -57,7 +59,7 @@ const buildFileName = (
 
 const readUploadError = async (res: Response): Promise<string> => {
   if (res.status === 413) {
-    return "Fichier trop volumineux pour le serveur (max 5 Mo).";
+    return "Fichier trop volumineux pour le serveur (max 20 Mo).";
   }
   if (res.status === 401) {
     return "Session expirée, reconnectez-vous.";
@@ -108,6 +110,9 @@ const readLocalFileAsBase64 = async (uri: string): Promise<string> => {
   const buffer = await res.arrayBuffer();
   if (buffer.byteLength === 0) {
     throw new Error("Fichier vide.");
+  }
+  if (buffer.byteLength > MAX_UPLOAD_BYTES) {
+    throw new Error("Fichier trop volumineux (max 20 Mo).");
   }
   return arrayBufferToBase64(buffer);
 };

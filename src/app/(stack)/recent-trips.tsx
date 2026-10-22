@@ -6,7 +6,6 @@ import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
 import {
-  compareDepartureAsc,
   compareDepartureDesc,
   formatVehicleDetails,
 } from "@/src/lib/tripSchedule";
@@ -117,7 +116,6 @@ const TripRatingSection = ({
 
 const RecentTripsScreen = () => {
   const [activeTab, setActiveTab] = React.useState<TripTab>("Avenir");
-  const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const { open, close } = useBottomSheetStore();
   const queryClient = useQueryClient();
@@ -139,12 +137,9 @@ const RecentTripsScreen = () => {
   const filteredTrips = React.useMemo(() => {
     const statuses = activeTab === "Avenir" ? AVENIR_STATUSES : PASSE_STATUSES;
     const filtered = allTrips.filter((trip) => statuses.includes(trip.status));
-    return [...filtered].sort((a, b) =>
-      sortOrder === "asc"
-        ? compareDepartureAsc(a, b)
-        : compareDepartureDesc(a, b),
-    );
-  }, [allTrips, activeTab, sortOrder]);
+    // Plus récent (date de départ) → plus ancien
+    return [...filtered].sort((a, b) => compareDepartureDesc(a, b));
+  }, [allTrips, activeTab]);
 
   const cancelMutation = useMutation({
     mutationFn: cancelMyTrip,
@@ -591,28 +586,7 @@ const RecentTripsScreen = () => {
           <Text className="pr-5 text-lg font-bold text-white">
             Tous les trajets
           </Text>
-          <View></View>
-          {/*    <TouchableOpacity
-            onPress={() =>
-              setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-            }
-            accessibilityLabel={
-              sortOrder === "asc"
-                ? "Tri : départ le plus tôt"
-                : "Tri : départ le plus tard"
-            }
-            hitSlop={8}
-          >
-            <MaterialCommunityIcons
-              name={
-                sortOrder === "asc"
-                  ? "sort-clock-ascending"
-                  : "sort-clock-descending"
-              }
-              size={24}
-              color="white"
-            />
-          </TouchableOpacity> */}
+          <View />
         </View>
 
         <View className="flex-row items-center p-1 rounded-2xl bg-white/15">
@@ -631,7 +605,7 @@ const RecentTripsScreen = () => {
                   activeTab === tab && "text-slate-900",
                 )}
               >
-                {tab === "Avenir" ? "Avenir" : "Passé"}
+                {tab === "Avenir" ? "A venir" : "Passés"}
               </Text>
             </TouchableOpacity>
           ))}

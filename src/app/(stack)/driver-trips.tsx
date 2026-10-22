@@ -158,7 +158,7 @@ const DriverTripsScreen = () => {
                   activeTab === tab && "text-slate-900",
                 )}
               >
-                {tab === "Avenir" ? "Avenir" : "Passé"}
+                {tab === "Avenir" ? "A venir" : "Passés"}
               </Text>
             </TouchableOpacity>
           ))}
