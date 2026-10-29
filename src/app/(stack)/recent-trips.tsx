@@ -6,6 +6,7 @@ import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import { getUser } from "@/src/lib/get-user";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
 import {
+  compareDepartureAsc,
   compareDepartureDesc,
   formatVehicleDetails,
 } from "@/src/lib/tripSchedule";
@@ -137,8 +138,10 @@ const RecentTripsScreen = () => {
   const filteredTrips = React.useMemo(() => {
     const statuses = activeTab === "Avenir" ? AVENIR_STATUSES : PASSE_STATUSES;
     const filtered = allTrips.filter((trip) => statuses.includes(trip.status));
-    // Plus récent (date de départ) → plus ancien
-    return [...filtered].sort((a, b) => compareDepartureDesc(a, b));
+    // À venir : plus proche → plus loin. Passés : plus récent → plus ancien.
+    const compare =
+      activeTab === "Avenir" ? compareDepartureAsc : compareDepartureDesc;
+    return [...filtered].sort(compare);
   }, [allTrips, activeTab]);
 
   const cancelMutation = useMutation({

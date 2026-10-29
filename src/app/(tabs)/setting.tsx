@@ -7,6 +7,7 @@ import {
 import { Text } from "@/src/components/ui/text";
 import { AvatarWithVerifiedOutline, VerifiedBadge } from "@/src/components/VerifiedBadge";
 import { authClient } from "@/src/lib/auth-client";
+import { resolvePublicAssetUrl } from "@/src/lib/public-asset-url";
 import { getUserRatings } from "@/src/services/rating.service";
 import { getUser } from "@/src/services/user.service";
 import { useAuthStore } from "@/src/store/auth.store";
@@ -111,7 +112,9 @@ const Setting = () => {
                         alt={user?.name ?? "User"}
                       >
                         <AvatarImage
-                          source={{ uri: user?.image ?? undefined }}
+                          source={{
+                            uri: resolvePublicAssetUrl(user?.image) ?? undefined,
+                          }}
                         />
                         <AvatarFallback>
                           <Text className="text-2xl font-bold text-primary">

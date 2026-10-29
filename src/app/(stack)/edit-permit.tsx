@@ -3,8 +3,8 @@ import { Input } from "@/src/components/ui/input";
 import { Text } from "@/src/components/ui/text";
 import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import { resolvePublicAssetUrl } from "@/src/lib/public-asset-url";
-import { getUser, updateProfile } from "@/src/services/user.service";
 import { uploadImageFile } from "@/src/services/upload.service";
+import { getUser, updateProfile } from "@/src/services/user.service";
 import { pickMediaFromDevice } from "@/src/utils/pickMedia";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,10 +21,11 @@ import {
 } from "react-native";
 
 type PermitFormValues = {
-  permitNumber: string;
+  image: string;
+  identityPhoto: string;
   permitPhoto: string;
   permitPhotoBack: string;
-  identityPhoto: string;
+  permitNumber: string;
 };
 
 const DocumentUploadField = ({
@@ -47,14 +48,19 @@ const DocumentUploadField = ({
     <View>
       <Text className="mb-1 text-xs text-muted-foreground">{label}</Text>
       {previewUrl && isPdf ? (
-        <View className="flex-row items-center p-4 mb-2 rounded-xl bg-gray-100">
+        <View className="flex-row items-center p-4 mb-2 bg-gray-100 rounded-xl">
           <Ionicons name="document-text-outline" size={22} color="#6366f1" />
           <Text className="ml-2 text-sm">Document PDF envoyé</Text>
         </View>
       ) : previewUrl ? (
         <Image
           source={{ uri: previewUrl }}
-          style={{ width: "100%", height: 144, borderRadius: 12, marginBottom: 8 }}
+          style={{
+            width: "100%",
+            height: 144,
+            borderRadius: 12,
+            marginBottom: 8,
+          }}
           className="bg-gray-100"
           contentFit="cover"
         />
@@ -107,32 +113,33 @@ const EditPermitScreen = () => {
     reset,
   } = useForm<PermitFormValues>({
     defaultValues: {
-      permitNumber: "",
+      image: "",
+      identityPhoto: "",
       permitPhoto: "",
       permitPhotoBack: "",
-      identityPhoto: "",
+      permitNumber: "",
     },
   });
 
   React.useEffect(() => {
     if (user) {
       reset({
-        permitNumber: user.permitNumber ?? "",
+        image: user.image ?? "",
+        identityPhoto: user.identityPhoto ?? "",
         permitPhoto: user.permitPhoto ?? "",
         permitPhotoBack: user.permitPhotoBack ?? "",
-        identityPhoto: user.identityPhoto ?? "",
+        permitNumber: user.permitNumber ?? "",
       });
     }
   }, [user, reset]);
 
-  const persistDocuments = async (
-    values: PermitFormValues,
-  ): Promise<void> => {
+  const persistDocuments = async (values: PermitFormValues): Promise<void> => {
     await updateProfile({
-      permitNumber: values.permitNumber || null,
+      image: values.image || null,
+      identityPhoto: values.identityPhoto || null,
       permitPhoto: values.permitPhoto || null,
       permitPhotoBack: values.permitPhotoBack || null,
-      identityPhoto: values.identityPhoto || null,
+      permitNumber: values.permitNumber || null,
     });
     await queryClient.invalidateQueries({ queryKey: ["user"] });
   };
@@ -164,16 +171,16 @@ const EditPermitScreen = () => {
     } catch (error) {
       Alert.alert(
         "Erreur",
-        error instanceof Error ? error.message : "Impossible d'envoyer le fichier",
+        error instanceof Error
+          ? error.message
+          : "Impossible d'envoyer le fichier",
       );
     } finally {
       setUploadingField(null);
     }
   };
 
-  const hasDocuments = Boolean(
-    user?.permitPhoto && user?.identityPhoto,
-  );
+  const hasDocuments = Boolean(user?.permitPhoto && user?.identityPhoto);
 
   const updateMutation = useMutation({
     mutationFn: updateProfile,
@@ -194,10 +201,11 @@ const EditPermitScreen = () => {
 
   const onSubmit = handleSubmit((values) => {
     updateMutation.mutate({
-      permitNumber: values.permitNumber || null,
+      image: values.image || null,
+      identityPhoto: values.identityPhoto || null,
       permitPhoto: values.permitPhoto || null,
       permitPhotoBack: values.permitPhotoBack || null,
-      identityPhoto: values.identityPhoto || null,
+      permitNumber: values.permitNumber || null,
     });
   });
 
@@ -247,11 +255,67 @@ const EditPermitScreen = () => {
         </View>
 
         <Text className="mb-4 text-sm text-muted-foreground">
-          Uploadez vos documents depuis l&apos;appareil photo, la photothèque
-          ou les fichiers du téléphone.
+          Uploadez vos documents depuis l&apos;appareil photo, la photothèque ou
+          les fichiers du téléphone.
         </Text>
 
         <View className="gap-4">
+          <Controller
+            control={control}
+            name="image"
+            render={({ field: { value, onChange } }) => (
+              <DocumentUploadField
+                label="Photo d'identité"
+                value={value}
+                onChange={onChange}
+                uploading={uploadingField === "image"}
+                onPick={() => handlePickDocument("image")}
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="identityPhoto"
+            render={({ field: { value, onChange } }) => (
+              <DocumentUploadField
+                label="Pièce d'identité"
+                value={value}
+                onChange={onChange}
+                uploading={uploadingField === "identityPhoto"}
+                onPick={() => handlePickDocument("identityPhoto")}
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="permitPhoto"
+            render={({ field: { value, onChange } }) => (
+              <DocumentUploadField
+                label="Permis de conduire recto"
+                value={value}
+                onChange={onChange}
+                uploading={uploadingField === "permitPhoto"}
+                onPick={() => handlePickDocument("permitPhoto")}
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="permitPhotoBack"
+            render={({ field: { value, onChange } }) => (
+              <DocumentUploadField
+                label="Permis de conduire verso"
+                value={value}
+                onChange={onChange}
+                uploading={uploadingField === "permitPhotoBack"}
+                onPick={() => handlePickDocument("permitPhotoBack")}
+              />
+            )}
+          />
+
           <Controller
             control={control}
             name="permitNumber"
@@ -271,48 +335,6 @@ const EditPermitScreen = () => {
                   </Text>
                 ) : null}
               </View>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="permitPhoto"
-            render={({ field: { value, onChange } }) => (
-              <DocumentUploadField
-                label="Photo de permis (Recto)"
-                value={value}
-                onChange={onChange}
-                uploading={uploadingField === "permitPhoto"}
-                onPick={() => handlePickDocument("permitPhoto")}
-              />
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="permitPhotoBack"
-            render={({ field: { value, onChange } }) => (
-              <DocumentUploadField
-                label="Photo de permis (Verso)"
-                value={value}
-                onChange={onChange}
-                uploading={uploadingField === "permitPhotoBack"}
-                onPick={() => handlePickDocument("permitPhotoBack")}
-              />
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="identityPhoto"
-            render={({ field: { value, onChange } }) => (
-              <DocumentUploadField
-                label="Photo d'identité"
-                value={value}
-                onChange={onChange}
-                uploading={uploadingField === "identityPhoto"}
-                onPick={() => handlePickDocument("identityPhoto")}
-              />
             )}
           />
         </View>

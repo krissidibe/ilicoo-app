@@ -24,6 +24,7 @@ export type UpdateProfilePayload = {
   phoneDialCode?: string;
   country?: string;
   gender?: "male" | "female";
+  image?: string | null;
   permitNumber?: string | null;
   permitPhoto?: string | null;
   permitPhotoBack?: string | null;

@@ -262,14 +262,14 @@ export const TripSheetContent = ({
               <Ionicons name="call" size={14} color="#059669" />
             </TouchableOpacity>
           )}
-          <Ionicons
+          {/*   <Ionicons
             name={expandedPassengerId === p.id ? "chevron-up" : "chevron-down"}
             size={isOnBoard ? 16 : 18}
             color="#64748b"
-          />
+          /> */}
         </View>
       </TouchableOpacity>
-      {expandedPassengerId === p.id && (
+      {true && (
         <View
           className={cn(
             "p-3 bg-white border-t",
