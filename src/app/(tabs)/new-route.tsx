@@ -427,7 +427,7 @@ const Setting = () => {
         pendingCommissionTotal={paymentsData?.pendingCommission}
       />
       <View className="flex-1 bg-background">
-        <View className="px-5 h-30 bg-primary pt-safe">
+        <View className="px-5 h-32 bg-primary pt-safe">
           <View className="flex-row justify-between items-center pt-3">
             <Text className="text-2xl font-bold text-white">
               {activeTab === "mes-trajets"
@@ -460,9 +460,9 @@ const Setting = () => {
                 </TouchableOpacity> */}
                 <TouchableOpacity
                   onPress={() => router.push("/(stack)/share-route" as any)}
-                  className="p-2 rounded-full bg-white/0"
+                  className="p-2 bg-white rounded-full"
                 >
-                  <Ionicons name="add-circle" size={28} color="white" />
+                  <Ionicons name="add-circle" size={28} color="teal" />
                 </TouchableOpacity>
               </View>
             ) : null}

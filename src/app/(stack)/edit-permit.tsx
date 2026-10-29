@@ -9,13 +9,14 @@ import { pickMediaFromDevice } from "@/src/utils/pickMedia";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import { router } from "expo-router";
-import React from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -28,68 +29,152 @@ type PermitFormValues = {
   permitNumber: string;
 };
 
+type DocumentField = Exclude<keyof PermitFormValues, "permitNumber">;
+
+const DOCUMENT_FIELDS: { name: DocumentField; label: string }[] = [
+  { name: "image", label: "Photo d'identité" },
+  { name: "identityPhoto", label: "Pièce d'identité" },
+  { name: "permitPhoto", label: "Permis de conduire recto" },
+  { name: "permitPhotoBack", label: "Permis de conduire verso" },
+];
+
+const toFormValues = (
+  source?: Partial<PermitFormValues> | null,
+): PermitFormValues => ({
+  image: source?.image ?? "",
+  identityPhoto: source?.identityPhoto ?? "",
+  permitPhoto: source?.permitPhoto ?? "",
+  permitPhotoBack: source?.permitPhotoBack ?? "",
+  permitNumber: source?.permitNumber ?? "",
+});
+
+const mergeDocumentValues = (
+  saved: PermitFormValues,
+  current: PermitFormValues,
+  field: DocumentField,
+  next: string,
+): PermitFormValues => {
+  const pick = (key: DocumentField): string =>
+    key === field ? next : current[key] || saved[key];
+  return {
+    image: pick("image"),
+    identityPhoto: pick("identityPhoto"),
+    permitPhoto: pick("permitPhoto"),
+    permitPhotoBack: pick("permitPhotoBack"),
+    permitNumber: current.permitNumber || saved.permitNumber,
+  };
+};
+
 const DocumentUploadField = ({
   label,
   value,
-  onChange,
+  localPreviewUri,
+  onRemove,
   uploading,
+  busyLabel = "Envoi en cours...",
   onPick,
 }: {
   label: string;
   value: string;
-  onChange: (next: string) => void;
+  localPreviewUri?: string | null;
+  onRemove: () => void;
   uploading: boolean;
+  busyLabel?: string;
   onPick: () => Promise<void>;
 }) => {
-  const previewUrl = resolvePublicAssetUrl(value);
-  const isPdf = value.toLowerCase().split("?")[0]?.endsWith(".pdf") ?? false;
+  const remoteUrl = resolvePublicAssetUrl(value);
+  const previewUri = localPreviewUri?.trim() || remoteUrl;
+  const isPdf =
+    (previewUri ?? "").toLowerCase().split("?")[0]?.endsWith(".pdf") ?? false;
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setFailed(false);
+  }, [previewUri]);
 
   return (
     <View>
       <Text className="mb-1 text-xs text-muted-foreground">{label}</Text>
-      {previewUrl && isPdf ? (
-        <View className="flex-row items-center p-4 mb-2 bg-gray-100 rounded-xl">
-          <Ionicons name="document-text-outline" size={22} color="#6366f1" />
-          <Text className="ml-2 text-sm">Document PDF envoyé</Text>
-        </View>
-      ) : previewUrl ? (
-        <Image
-          source={{ uri: previewUrl }}
+      {previewUri || uploading ? (
+        <View
           style={{
             width: "100%",
-            height: 144,
+            height: 176,
             borderRadius: 12,
+            overflow: "hidden",
+            backgroundColor: "#F3F4F6",
             marginBottom: 8,
           }}
-          className="bg-gray-100"
-          contentFit="cover"
-        />
+        >
+          {previewUri && isPdf ? (
+            <View className="flex-row flex-1 justify-center items-center px-4">
+              <Ionicons
+                name="document-text-outline"
+                size={28}
+                color="#6366f1"
+              />
+              <Text className="ml-2 text-sm">Document PDF envoyé</Text>
+            </View>
+          ) : previewUri && !failed ? (
+            <Image
+              source={{ uri: previewUri }}
+              style={{ width: "100%", height: 176 }}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+              onError={() => setFailed(true)}
+            />
+          ) : previewUri ? (
+            <View className="flex-1 justify-center items-center px-4">
+              <Ionicons name="image-outline" size={28} color="#6366f1" />
+              <Text className="mt-2 text-sm text-center text-muted-foreground">
+                Document enregistré
+              </Text>
+            </View>
+          ) : null}
+          {uploading ? (
+            <View
+              style={StyleSheet.absoluteFill}
+              className="justify-center items-center bg-black/50"
+            >
+              <ActivityIndicator size="large" color="#ffffff" />
+              <Text className="mt-2 text-sm font-medium text-white">
+                {busyLabel}
+              </Text>
+            </View>
+          ) : null}
+        </View>
       ) : null}
       <TouchableOpacity
         className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
         disabled={uploading}
         onPress={() => void onPick()}
       >
-        <View className="flex-row items-center">
-          <Ionicons
-            name={value ? "checkmark-circle-outline" : "cloud-upload-outline"}
-            size={18}
-            color={value ? "#10b981" : "#6366f1"}
-          />
+        <View className="flex-row flex-1 items-center">
+          {uploading ? (
+            <ActivityIndicator size="small" color="#6366f1" />
+          ) : (
+            <Ionicons
+              name={value ? "checkmark-circle-outline" : "cloud-upload-outline"}
+              size={18}
+              color={value ? "#10b981" : "#6366f1"}
+            />
+          )}
           <Text className="ml-2 text-sm">
             {uploading
-              ? "Envoi en cours..."
+              ? busyLabel
               : value
                 ? "Document ajouté"
                 : "Choisir un fichier"}
           </Text>
         </View>
-        <Text className="text-xs font-semibold text-primary">
-          {value ? "Remplacer" : "Uploader"}
-        </Text>
+        {uploading ? null : (
+          <Text className="text-xs font-semibold text-primary">
+            {value ? "Remplacer" : "Uploader"}
+          </Text>
+        )}
       </TouchableOpacity>
-      {value ? (
-        <TouchableOpacity onPress={() => onChange("")} className="mt-2">
+      {value && !uploading ? (
+        <TouchableOpacity onPress={onRemove} className="mt-2">
           <Text className="text-xs text-red-500">Retirer le document</Text>
         </TouchableOpacity>
       ) : null}
@@ -98,11 +183,23 @@ const DocumentUploadField = ({
 };
 
 const EditPermitScreen = () => {
-  const { data: user, isLoading } = useQuery(getUser());
+  const {
+    data: user,
+    isLoading,
+    refetch,
+  } = useQuery({
+    ...getUser(),
+    refetchOnMount: "always",
+  });
   const queryClient = useQueryClient();
   const [uploadingField, setUploadingField] = React.useState<
     keyof PermitFormValues | null
   >(null);
+  const [busyLabel, setBusyLabel] = React.useState("Envoi en cours...");
+  const [localPreviews, setLocalPreviews] = React.useState<
+    Partial<Record<DocumentField, string>>
+  >({});
+  const skipServerSync = React.useRef(false);
 
   const {
     control,
@@ -112,41 +209,61 @@ const EditPermitScreen = () => {
     formState: { errors, isDirty },
     reset,
   } = useForm<PermitFormValues>({
-    defaultValues: {
-      image: "",
-      identityPhoto: "",
-      permitPhoto: "",
-      permitPhotoBack: "",
-      permitNumber: "",
-    },
+    defaultValues: toFormValues(),
   });
 
+  const applySavedUser = useCallback(
+    (saved: PermitFormValues): void => {
+      queryClient.setQueryData(["user"], (current: typeof user) => ({
+        ...(current ?? {}),
+        ...saved,
+      }));
+      reset(saved);
+    },
+    [queryClient, reset],
+  );
+
   React.useEffect(() => {
-    if (user) {
-      reset({
-        image: user.image ?? "",
-        identityPhoto: user.identityPhoto ?? "",
-        permitPhoto: user.permitPhoto ?? "",
-        permitPhotoBack: user.permitPhotoBack ?? "",
-        permitNumber: user.permitNumber ?? "",
-      });
+    if (!user || skipServerSync.current) {
+      return;
     }
-  }, [user, reset]);
+    const next = toFormValues(user);
+    const typedPermitNumber = getValues("permitNumber");
+    reset({
+      ...next,
+      permitNumber: typedPermitNumber || next.permitNumber,
+    });
+  }, [user, reset, getValues]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
 
   const persistDocuments = async (values: PermitFormValues): Promise<void> => {
-    await updateProfile({
+    const saved = await updateProfile({
       image: values.image || null,
       identityPhoto: values.identityPhoto || null,
       permitPhoto: values.permitPhoto || null,
       permitPhotoBack: values.permitPhotoBack || null,
       permitNumber: values.permitNumber || null,
     });
-    await queryClient.invalidateQueries({ queryKey: ["user"] });
+    applySavedUser(toFormValues(saved));
   };
 
-  const handlePickDocument = async (
-    field: keyof PermitFormValues,
-  ): Promise<void> => {
+  const clearLocalPreview = (field: DocumentField): void => {
+    setLocalPreviews((current) => {
+      if (!current[field]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const handlePickDocument = async (field: DocumentField): Promise<void> => {
     if (uploadingField) {
       return;
     }
@@ -154,21 +271,30 @@ const EditPermitScreen = () => {
     if (!picked?.uri) {
       return;
     }
+    setLocalPreviews((current) => ({ ...current, [field]: picked.uri }));
+    setBusyLabel("Envoi en cours...");
     setUploadingField(field);
+    skipServerSync.current = true;
     try {
       const uploadedUrl = await uploadImageFile(picked.uri, {
         fileName: picked.fileName,
         mimeType: picked.mimeType,
         folder: "documents",
       });
+      const nextValues = mergeDocumentValues(
+        toFormValues(user),
+        getValues(),
+        field,
+        uploadedUrl,
+      );
       setValue(field, uploadedUrl, {
         shouldDirty: true,
         shouldValidate: true,
         shouldTouch: true,
       });
-      const nextValues = { ...getValues(), [field]: uploadedUrl };
       await persistDocuments(nextValues);
     } catch (error) {
+      clearLocalPreview(field);
       Alert.alert(
         "Erreur",
         error instanceof Error
@@ -176,16 +302,64 @@ const EditPermitScreen = () => {
           : "Impossible d'envoyer le fichier",
       );
     } finally {
+      skipServerSync.current = false;
       setUploadingField(null);
     }
+  };
+
+  const removeDocument = async (field: DocumentField): Promise<void> => {
+    if (uploadingField) {
+      return;
+    }
+    clearLocalPreview(field);
+    setBusyLabel("Suppression...");
+    setUploadingField(field);
+    skipServerSync.current = true;
+    try {
+      const nextValues = mergeDocumentValues(
+        toFormValues(user),
+        getValues(),
+        field,
+        "",
+      );
+      setValue(field, "", { shouldDirty: false });
+      await persistDocuments(nextValues);
+    } catch (error) {
+      Alert.alert(
+        "Erreur",
+        error instanceof Error
+          ? error.message
+          : "Impossible de retirer le document",
+      );
+    } finally {
+      skipServerSync.current = false;
+      setUploadingField(null);
+    }
+  };
+
+  const confirmRemoveDocument = (field: DocumentField, label: string): void => {
+    Alert.alert(
+      "Retirer le document",
+      `Voulez-vous vraiment retirer « ${label} » ?`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Retirer",
+          style: "destructive",
+          onPress: () => {
+            void removeDocument(field);
+          },
+        },
+      ],
+    );
   };
 
   const hasDocuments = Boolean(user?.permitPhoto && user?.identityPhoto);
 
   const updateMutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+    onSuccess: (saved) => {
+      applySavedUser(toFormValues(saved));
       Alert.alert("Succès", "Vos documents ont été enregistrés.");
       router.back();
     },
@@ -260,61 +434,29 @@ const EditPermitScreen = () => {
         </Text>
 
         <View className="gap-4">
-          <Controller
-            control={control}
-            name="image"
-            render={({ field: { value, onChange } }) => (
-              <DocumentUploadField
-                label="Photo d'identité"
-                value={value}
-                onChange={onChange}
-                uploading={uploadingField === "image"}
-                onPick={() => handlePickDocument("image")}
-              />
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="identityPhoto"
-            render={({ field: { value, onChange } }) => (
-              <DocumentUploadField
-                label="Pièce d'identité"
-                value={value}
-                onChange={onChange}
-                uploading={uploadingField === "identityPhoto"}
-                onPick={() => handlePickDocument("identityPhoto")}
-              />
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="permitPhoto"
-            render={({ field: { value, onChange } }) => (
-              <DocumentUploadField
-                label="Permis de conduire recto"
-                value={value}
-                onChange={onChange}
-                uploading={uploadingField === "permitPhoto"}
-                onPick={() => handlePickDocument("permitPhoto")}
-              />
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="permitPhotoBack"
-            render={({ field: { value, onChange } }) => (
-              <DocumentUploadField
-                label="Permis de conduire verso"
-                value={value}
-                onChange={onChange}
-                uploading={uploadingField === "permitPhotoBack"}
-                onPick={() => handlePickDocument("permitPhotoBack")}
-              />
-            )}
-          />
+          {DOCUMENT_FIELDS.map((document) => (
+            <Controller
+              key={document.name}
+              control={control}
+              name={document.name}
+              render={({ field: { value } }) => {
+                const savedValue = user?.[document.name] ?? "";
+                return (
+                  <DocumentUploadField
+                    label={document.label}
+                    value={value || savedValue}
+                    localPreviewUri={localPreviews[document.name]}
+                    onRemove={() =>
+                      confirmRemoveDocument(document.name, document.label)
+                    }
+                    uploading={uploadingField === document.name}
+                    busyLabel={busyLabel}
+                    onPick={() => handlePickDocument(document.name)}
+                  />
+                );
+              }}
+            />
+          ))}
 
           <Controller
             control={control}

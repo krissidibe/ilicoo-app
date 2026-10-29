@@ -17,6 +17,8 @@ const IMAGE_PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   allowsMultipleSelection: false,
   quality: IMAGE_QUALITY,
   exif: false,
+  preferredAssetRepresentationMode:
+    ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
 };
 
 /** Laisse le time à l’ActionSheet / Alert de se fermer avant d’ouvrir un autre écran natif. */

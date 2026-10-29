@@ -5,7 +5,10 @@ import {
   AvatarImage,
 } from "@/src/components/ui/avatar";
 import { Text } from "@/src/components/ui/text";
-import { AvatarWithVerifiedOutline, VerifiedBadge } from "@/src/components/VerifiedBadge";
+import {
+  AvatarWithVerifiedOutline,
+  VerifiedBadge,
+} from "@/src/components/VerifiedBadge";
 import { authClient } from "@/src/lib/auth-client";
 import { resolvePublicAssetUrl } from "@/src/lib/public-asset-url";
 import { getUserRatings } from "@/src/services/rating.service";
@@ -113,7 +116,8 @@ const Setting = () => {
                       >
                         <AvatarImage
                           source={{
-                            uri: resolvePublicAssetUrl(user?.image) ?? undefined,
+                            uri:
+                              resolvePublicAssetUrl(user?.image) ?? undefined,
                           }}
                         />
                         <AvatarFallback>
@@ -144,7 +148,11 @@ const Setting = () => {
                       </Text>
                     ) : (
                       <View className="flex-row gap-1.5 items-center mt-1">
-                        <Ionicons name="close-circle" size={14} color="#fecaca" />
+                        <Ionicons
+                          name="close-circle"
+                          size={14}
+                          color="#fecaca"
+                        />
                         <Text className="text-xs font-semibold text-red-200">
                           Profil non vérifié
                         </Text>
@@ -275,7 +283,7 @@ const Setting = () => {
               <SettingItem
                 icon="card-outline"
                 title="Commission"
-                subtitle=" Commission à payer"
+                subtitle="Commission à payer"
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push("/(stack)/payment" as any);

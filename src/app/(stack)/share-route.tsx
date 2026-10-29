@@ -776,13 +776,27 @@ const ShareRouteScreen = () => {
     <View className="flex-1 bg-background">
       <View className="px-5 pb-5 bg-primary pt-safe">
         <View className="flex-row justify-between items-center pt-3 mb-4">
-          <TouchableOpacity onPress={handleGoBack}>
+          <TouchableOpacity
+            onPress={() => {
+              if (step === 1) {
+                handleGoBack();
+              } else {
+                setStep((x) => (x - 1) as FormStep);
+              }
+            }}
+          >
             <Ionicons name="chevron-back" size={24} color="white" />
           </TouchableOpacity>
           <Text className="text-lg font-bold text-white">
             Publier un trajet
           </Text>
-          <View className="w-6" />
+          {step !== 1 ? (
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="close" size={24} color="white" />
+            </TouchableOpacity>
+          ) : (
+            <View />
+          )}
         </View>
         <View className="flex-row flex-wrap gap-2">
           {[
