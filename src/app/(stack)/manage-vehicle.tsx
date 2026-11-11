@@ -5,9 +5,7 @@ import { cn } from "@/src/lib/utils";
 import { resolvePublicAssetUrl } from "@/src/lib/public-asset-url";
 import { queryKeys } from "@/src/services/queryKeys";
 import { uploadImageFile } from "@/src/services/upload.service";
-import { getUser } from "@/src/services/user.service";
 import { createVehicle, getVehicules, updateVehicle } from "@/src/services/vehicle.service";
-import { pickMediaFromDevice } from "@/src/utils/pickMedia";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
@@ -75,16 +73,6 @@ const ManageVehicleScreen = () => {
     [vehicleId, vehicles],
   );
 
-  const { data: currentUser } = useQuery(getUser());
-  const hasPermitInfo =
-    isEditMode ||
-    !!(
-      currentUser?.permitNumber ||
-      currentUser?.permitPhoto ||
-      currentUser?.permitPhotoBack ||
-      currentUser?.identityPhoto
-    );
-
   const [currentStep, setCurrentStep] = React.useState<number>(0);
   const [furthestUnlockedStep, setFurthestUnlockedStep] =
     React.useState<number>(0);
@@ -94,9 +82,6 @@ const ManageVehicleScreen = () => {
     null,
   );
   const [isSending, setIsSending] = React.useState(false);
-  const [uploadingDocument, setUploadingDocument] = React.useState<
-    "licensePhoto" | "permitPhotoBack" | "identityPhoto" | null
-  >(null);
 
   const openVehiclePhotoLibrary = React.useCallback(async () => {
     try {
@@ -156,64 +141,23 @@ const ManageVehicleScreen = () => {
     mode: "onChange",
   });
 
-  const pickAndUploadDocument = React.useCallback(
-    async (
-      field: "licensePhoto" | "permitPhotoBack" | "identityPhoto",
-    ): Promise<void> => {
-      if (uploadingDocument) {
-        return;
-      }
-      const picked = await pickMediaFromDevice();
-      if (!picked?.uri) {
-        return;
-      }
-      setUploadingDocument(field);
-      try {
-        const uploadedUrl = await uploadImageFile(picked.uri, {
-          fileName: picked.fileName,
-          mimeType: picked.mimeType,
-          folder: "documents",
-        });
-        setValue(field, uploadedUrl, {
-          shouldDirty: true,
-          shouldValidate: true,
-        });
-      } catch (error) {
-        Alert.alert(
-          "Erreur",
-          error instanceof Error
-            ? error.message
-            : "Impossible d'envoyer le fichier",
-        );
-      } finally {
-        setUploadingDocument(null);
-      }
-    },
-    [setValue, uploadingDocument],
-  );
-
   const vehicleType = watch("vehicleType");
   const maxPassenger = watch("maximumPassenger");
-  const uploadedLicensePhoto = watch("licensePhoto");
-  const uploadedPermitPhotoBack = watch("permitPhotoBack");
-  const uploadedIdentityPhoto = watch("identityPhoto");
 
   const isMoto = vehicleType === "moto";
 
-  const steps = React.useMemo(() => {
-    const base = [
+  // Le permis / pièce d'identité se gèrent uniquement dans « Mes documents ».
+  const steps = React.useMemo(
+    () => [
       { id: 0, label: "Infos", icon: "information-circle-outline" },
       {
         id: 1,
         label: "Véhicule",
         icon: isMoto ? "bicycle-outline" : "car-sport-outline",
       },
-    ];
-    if (!isMoto && !hasPermitInfo) {
-      base.push({ id: 2, label: "Permis", icon: "document-text-outline" });
-    }
-    return base;
-  }, [isMoto, hasPermitInfo]);
+    ],
+    [isMoto],
+  );
 
   React.useEffect(() => {
     if (!vehicleType) {
@@ -231,18 +175,12 @@ const ManageVehicleScreen = () => {
   const fieldsByStep: (keyof VehicleFormValues)[][] = isMoto
     ? [
         ["vehicleType", "maximumPassenger"],
-        ["vehicleName", "plateNumber", "color"],
+        ["vehicleName", "color"],
       ]
-    : hasPermitInfo
-      ? [
-          ["vehicleType", "maximumPassenger"],
-          ["vehicleName", "year", "plateNumber", "color"],
-        ]
-      : [
-          ["vehicleType", "maximumPassenger"],
-          ["vehicleName", "year", "plateNumber", "color"],
-          ["licenseNumber", "licensePhoto", "permitPhotoBack", "identityPhoto"],
-        ];
+    : [
+        ["vehicleType", "maximumPassenger"],
+        ["vehicleName", "year", "plateNumber", "color"],
+      ];
 
   const validatePreviousSteps = async (
     targetStep: number,
@@ -367,7 +305,7 @@ const ManageVehicleScreen = () => {
             type: values.vehicleType as "voiture" | "moto",
             vehicleName: values.vehicleName,
             year: isMoto ? undefined : values.year,
-            plateNumber: values.plateNumber,
+            plateNumber: isMoto ? undefined : values.plateNumber,
             color: values.color || undefined,
             photo,
             maximumPassenger: values.maximumPassenger,
@@ -379,13 +317,9 @@ const ManageVehicleScreen = () => {
         type: values.vehicleType as "voiture" | "moto",
         vehicleName: values.vehicleName,
         year: isMoto ? undefined : values.year,
-        plateNumber: values.plateNumber,
+        plateNumber: isMoto ? undefined : values.plateNumber,
         color: values.color || undefined,
         photo,
-        permitNumber: values.licenseNumber || undefined,
-        permitPhoto: values.licensePhoto || undefined,
-        permitPhotoBack: values.permitPhotoBack || undefined,
-        identityPhoto: values.identityPhoto || undefined,
         maximumPassenger: values.maximumPassenger,
         default: false,
       });
@@ -579,28 +513,30 @@ const ManageVehicleScreen = () => {
               />
             ) : null}
 
-            <Controller
-              control={control}
-              name="plateNumber"
-              rules={{ required: "Le numéro de matriculation est requis" }}
-              render={({ field: { onChange, value } }) => (
-                <View>
-                  <Text className="mb-1 text-xs text-muted-foreground">
-                    Numéro de matriculation
-                  </Text>
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    placeholder="Ex: BK-1234-AA"
-                  />
-                  {errors.plateNumber ? (
-                    <Text className="mt-1 text-xs text-red-500">
-                      {errors.plateNumber.message}
+            {!isMoto ? (
+              <Controller
+                control={control}
+                name="plateNumber"
+                rules={{ required: "Le numéro de matriculation est requis" }}
+                render={({ field: { onChange, value } }) => (
+                  <View>
+                    <Text className="mb-1 text-xs text-muted-foreground">
+                      Numéro de matriculation
                     </Text>
-                  ) : null}
-                </View>
-              )}
-            />
+                    <Input
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="Ex: BK-1234-AA"
+                    />
+                    {errors.plateNumber ? (
+                      <Text className="mt-1 text-xs text-red-500">
+                        {errors.plateNumber.message}
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
+              />
+            ) : null}
 
             <Controller
               control={control}
@@ -799,217 +735,9 @@ const ManageVehicleScreen = () => {
               )}
             </View> */}
 
-            {isMoto ? (
-              <Controller
-                control={control}
-                name="identityPhoto"
-                render={({ field: { value, onChange } }) => (
-                  <View>
-                    <Text className="mb-1 text-xs text-muted-foreground">
-                      Photo d&apos;identité (optionnel)
-                    </Text>
-                    <TouchableOpacity
-                      className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
-                      onPress={() => {
-                        if (value) onChange("");
-                        else onChange("identity_photo_01.jpg");
-                      }}
-                    >
-                      <View className="flex-row items-center">
-                        <Ionicons
-                          name={
-                            value
-                              ? "checkmark-circle-outline"
-                              : "cloud-upload-outline"
-                          }
-                          size={18}
-                          color={value ? "#10b981" : "#6366f1"}
-                        />
-                        <Text className="ml-2 text-sm">
-                          {value ? value : "Uploader (optionnel)"}
-                        </Text>
-                      </View>
-                      <Text className="text-xs font-semibold text-primary">
-                        {value ? "Retirer" : "Uploader"}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              />
-            ) : null}
           </Animated.View>
         ) : null}
 
-        {currentStep === 2 && !isMoto && !hasPermitInfo ? (
-          <Animated.View entering={FadeInDown.duration(350)} className="gap-4">
-            <Text className="text-base font-semibold text-foreground">
-              Permis
-            </Text>
-
-            <Controller
-              control={control}
-              name="licenseNumber"
-              render={({ field: { onChange, value } }) => (
-                <View>
-                  <Text className="mb-1 text-xs text-muted-foreground">
-                    Numéro permis
-                  </Text>
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    placeholder="Ex: ML-2024-00981"
-                  />
-                </View>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="licensePhoto"
-              render={({ field: { value, onChange } }) => (
-                <View>
-                  <Text className="mb-1 text-xs text-muted-foreground">
-                    Photo de permis (Recto)
-                  </Text>
-                  <TouchableOpacity
-                    className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
-                    disabled={uploadingDocument !== null}
-                    onPress={() => {
-                      if (value) onChange("");
-                      else void pickAndUploadDocument("licensePhoto");
-                    }}
-                  >
-                    <View className="flex-row items-center">
-                      <Ionicons
-                        name={
-                          value
-                            ? "checkmark-circle-outline"
-                            : "cloud-upload-outline"
-                        }
-                        size={18}
-                        color={value ? "#10b981" : "#6366f1"}
-                      />
-                      <Text className="ml-2 text-sm">
-                        {uploadingDocument === "licensePhoto"
-                          ? "Envoi en cours..."
-                          : value
-                            ? "Document ajouté"
-                            : "Uploader votre photo"}
-                      </Text>
-                    </View>
-                    <Text className="text-xs font-semibold text-primary">
-                      {value ? "Retirer" : "Uploader"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="permitPhotoBack"
-              render={({ field: { value, onChange } }) => (
-                <View>
-                  <Text className="mb-1 text-xs text-muted-foreground">
-                    Photo de permis (Verso)
-                  </Text>
-                  <TouchableOpacity
-                    className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
-                    disabled={uploadingDocument !== null}
-                    onPress={() => {
-                      if (value) onChange("");
-                      else void pickAndUploadDocument("permitPhotoBack");
-                    }}
-                  >
-                    <View className="flex-row items-center">
-                      <Ionicons
-                        name={
-                          value
-                            ? "checkmark-circle-outline"
-                            : "cloud-upload-outline"
-                        }
-                        size={18}
-                        color={value ? "#10b981" : "#6366f1"}
-                      />
-                      <Text className="ml-2 text-sm">
-                        {uploadingDocument === "permitPhotoBack"
-                          ? "Envoi en cours..."
-                          : value
-                            ? "Document ajouté"
-                            : "Uploader votre photo"}
-                      </Text>
-                    </View>
-                    <Text className="text-xs font-semibold text-primary">
-                      {value ? "Retirer" : "Uploader"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="identityPhoto"
-              render={({ field: { value, onChange } }) => (
-                <View>
-                  <Text className="mb-1 text-xs text-muted-foreground">
-                    Photo d'identité
-                  </Text>
-                  <TouchableOpacity
-                    className="flex-row justify-between items-center p-4 rounded-xl border border-dashed border-gray"
-                    disabled={uploadingDocument !== null}
-                    onPress={() => {
-                      if (value) onChange("");
-                      else void pickAndUploadDocument("identityPhoto");
-                    }}
-                  >
-                    <View className="flex-row items-center">
-                      <Ionicons
-                        name={
-                          value
-                            ? "checkmark-circle-outline"
-                            : "cloud-upload-outline"
-                        }
-                        size={18}
-                        color={value ? "#10b981" : "#6366f1"}
-                      />
-                      <Text className="ml-2 text-sm">
-                        {uploadingDocument === "identityPhoto"
-                          ? "Envoi en cours..."
-                          : value
-                            ? "Document ajouté"
-                            : "Uploader votre photo"}
-                      </Text>
-                    </View>
-                    <Text className="text-xs font-semibold text-primary">
-                      {value ? "Retirer" : "Uploader"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
-
-            <View className="p-4 rounded-2xl border border-primary/20 bg-primary/10">
-              <Text className="text-xs text-muted-foreground">
-                Récapitulatif
-              </Text>
-              <Text className="mt-1 text-sm">Type: Voiture</Text>
-              <Text className="text-sm">Max passagers: {maxPassenger}</Text>
-              <Text className="text-sm">
-                Photo permis recto:{" "}
-                {uploadedLicensePhoto ? "Ajoutée" : "Non ajoutée"}
-              </Text>
-              <Text className="text-sm">
-                Photo permis verso:{" "}
-                {uploadedPermitPhotoBack ? "Ajoutée" : "Non ajoutée"}
-              </Text>
-              <Text className="text-sm">
-                Photo d'identité:{" "}
-                {uploadedIdentityPhoto ? "Ajoutée" : "Non ajoutée"}
-              </Text>
-            </View>
-          </Animated.View>
-        ) : null}
       </ScrollView>
 
       <View className="absolute right-0 bottom-0 left-0 px-5 pt-3 pb-5 bg-white border-t border-gray">

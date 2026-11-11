@@ -30,10 +30,11 @@ const NON_EFFECTUE_REASONS = [
     label: "J'ai eu un empêchement",
     icon: "account-cancel-outline",
   },
+  { id: "driver-no-show", label: "Chauffeur absent", icon: "car-off" },
   {
-    id: "driver-no-show",
-    label: "Le chauffeur ne s'est pas présenté",
-    icon: "car-off",
+    id: "driver-unreachable",
+    label: "Chauffeur injoignable par téléphone",
+    icon: "phone-off-outline",
   },
   { id: "other", label: "Autre", icon: "dots-horizontal-circle-outline" },
 ];

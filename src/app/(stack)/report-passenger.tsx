@@ -4,7 +4,10 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Text } from "@/src/components/ui/text";
 import { queryKeys } from "@/src/services/queryKeys";
-import { createRating } from "@/src/services/rating.service";
+import {
+  createRating,
+  markDriverPassengerHandled,
+} from "@/src/services/rating.service";
 import { createPassengerReport } from "@/src/services/report.service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,8 +16,17 @@ import React, { useState } from "react";
 import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
 
 const REASONS = [
-  { id: "no-show", label: "Il ne s'est pas présenté", icon: "account-off-outline" },
-  { id: "unreachable", label: "Injoignable", icon: "phone-off-outline" },
+  {
+    id: "prevented",
+    label: "J'ai eu un empêchement",
+    icon: "account-cancel-outline",
+  },
+  { id: "no-show", label: "Passager absent", icon: "account-off-outline" },
+  {
+    id: "unreachable",
+    label: "Passager injoignable par téléphone",
+    icon: "phone-off-outline",
+  },
   { id: "other", label: "Autre", icon: "dots-horizontal-circle-outline" },
 ];
 
@@ -26,7 +38,7 @@ const ReportPassengerScreen = () => {
     passengerName: string;
     from: string;
     to: string;
-    mode: "rate" | "report";
+    mode: "rate" | "report" | "non-effectue";
   }>();
 
   const isRateMode = params.mode === "rate";
@@ -56,6 +68,12 @@ const ReportPassengerScreen = () => {
   const reportMutation = useMutation({
     mutationFn: createPassengerReport,
     onSuccess: async () => {
+      if (params.routeId && params.passengerId) {
+        await markDriverPassengerHandled(params.routeId, params.passengerId);
+        await queryClient.invalidateQueries({
+          queryKey: ["driver-handled-passengers"],
+        });
+      }
       await queryClient.invalidateQueries({ queryKey: queryKeys.routes.mine });
       Alert.alert(
         "Signalement envoyé",
@@ -107,7 +125,7 @@ const ReportPassengerScreen = () => {
   return (
     <View className="flex-1 bg-background">
       <HeaderApp
-        title={isRateMode ? "Noter le passager" : "Signaler le passager"}
+        title={isRateMode ? "Noter le passager" : "Signaler un problème"}
       />
       <ScrollView
         className="flex-1"

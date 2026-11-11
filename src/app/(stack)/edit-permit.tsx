@@ -9,6 +9,7 @@ import { pickMediaFromDevice } from "@/src/utils/pickMedia";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
+import * as SecureStore from "expo-secure-store";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -30,6 +31,10 @@ type PermitFormValues = {
 };
 
 type DocumentField = Exclude<keyof PermitFormValues, "permitNumber">;
+
+/** Mémorise que l'utilisateur a cliqué sur « Enregistrer » après avoir ajouté des documents. */
+const docsSubmittedKey = (userId: string): string =>
+  `documents_submitted_${userId.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
 
 const DOCUMENT_FIELDS: { name: DocumentField; label: string }[] = [
   { name: "image", label: "Photo d'identité" },
@@ -200,6 +205,18 @@ const EditPermitScreen = () => {
     Partial<Record<DocumentField, string>>
   >({});
   const skipServerSync = React.useRef(false);
+  /** Un document a été ajouté / retiré depuis l'ouverture de l'écran (déjà persisté côté API). */
+  const [hasDocumentChanges, setHasDocumentChanges] = React.useState(false);
+  const [docsSubmitted, setDocsSubmitted] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+    SecureStore.getItemAsync(docsSubmittedKey(user.id))
+      .then((v) => setDocsSubmitted(v === "1"))
+      .catch(() => setDocsSubmitted(false));
+  }, [user?.id]);
 
   const {
     control,
@@ -293,6 +310,7 @@ const EditPermitScreen = () => {
         shouldTouch: true,
       });
       await persistDocuments(nextValues);
+      setHasDocumentChanges(true);
     } catch (error) {
       clearLocalPreview(field);
       Alert.alert(
@@ -324,6 +342,7 @@ const EditPermitScreen = () => {
       );
       setValue(field, "", { shouldDirty: false });
       await persistDocuments(nextValues);
+      setHasDocumentChanges(true);
     } catch (error) {
       Alert.alert(
         "Erreur",
@@ -354,12 +373,28 @@ const EditPermitScreen = () => {
     );
   };
 
-  const hasDocuments = Boolean(user?.permitPhoto && user?.identityPhoto);
+  const hasAnyDocument = DOCUMENT_FIELDS.some((d) => Boolean(user?.[d.name]));
+  const showPendingValidation = docsSubmitted && hasAnyDocument;
 
   const updateMutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess: (saved) => {
-      applySavedUser(toFormValues(saved));
+    onSuccess: async (saved) => {
+      const savedValues = toFormValues(saved);
+      applySavedUser(savedValues);
+      setHasDocumentChanges(false);
+      const hasDocs = DOCUMENT_FIELDS.some((d) => Boolean(savedValues[d.name]));
+      if (user?.id) {
+        try {
+          if (hasDocs) {
+            await SecureStore.setItemAsync(docsSubmittedKey(user.id), "1");
+          } else {
+            await SecureStore.deleteItemAsync(docsSubmittedKey(user.id));
+          }
+        } catch {
+          // non bloquant
+        }
+      }
+      setDocsSubmitted(hasDocs);
       Alert.alert("Succès", "Vos documents ont été enregistrés.");
       router.back();
     },
@@ -416,14 +451,14 @@ const EditPermitScreen = () => {
                 Profil vérifié par l&apos;équipe Ilicoo
               </Text>
             </>
-          ) : hasDocuments ? (
+          ) : showPendingValidation ? (
             <Text className="flex-1 text-sm text-amber-700">
               Documents envoyés — validation administrateur en cours
             </Text>
           ) : (
             <Text className="flex-1 text-sm text-muted-foreground">
-              Ajoutez votre permis et votre pièce d&apos;identité pour être
-              vérifié.
+              Ajoutez votre pièce d&apos;identité et votre photo pour avoir un
+              profil vérifié.
             </Text>
           )}
         </View>
@@ -487,7 +522,9 @@ const EditPermitScreen = () => {
           className="rounded-xl"
           onPress={() => void onSubmit()}
           disabled={
-            !isDirty || updateMutation.isPending || uploadingField !== null
+            !(isDirty || hasDocumentChanges) ||
+            updateMutation.isPending ||
+            uploadingField !== null
           }
         >
           <Text>

@@ -21,7 +21,6 @@ import { getMyRoutes } from "@/src/services/route.service";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { router } from "expo-router";
 import React from "react";
 import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
 
@@ -159,8 +158,11 @@ export const TripSheetContent = ({
   const completedPassengers = trip.passengers.filter(
     (p) => p.status === "COMPLETED",
   );
+  // Trajet terminé : passagers confirmés + ceux qui n'ont pas encore confirmé.
   const passengersOnBoard =
-    trip.status === "Termine" ? completedPassengers : acceptedPassengers;
+    trip.status === "Termine"
+      ? [...acceptedPassengers, ...completedPassengers]
+      : acceptedPassengers;
 
   const PassengerAccordion = ({
     p,
@@ -371,69 +373,6 @@ export const TripSheetContent = ({
               })()}
             </View>
           ) : null}
-          {t.status === "Termine" &&
-            p.status === "COMPLETED" &&
-            p.userId &&
-            (!p.ratedByDriver || !p.reportedByDriver) && (
-              <View className="gap-2 pt-3 mt-3 border-t border-gray-100">
-                {!p.ratedByDriver && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      close();
-                      router.push({
-                        pathname: "/(stack)/report-passenger",
-                        params: {
-                          routeId: t.id,
-                          passengerId: p.userId!,
-                          passengerName: p.name,
-                          from: t.from,
-                          to: t.to,
-                          mode: "rate",
-                        },
-                      } as never);
-                    }}
-                    className="flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-500/15"
-                  >
-                    <MaterialCommunityIcons
-                      name="star-outline"
-                      size={16}
-                      color="#d97706"
-                    />
-                    <Text className="text-xs font-semibold text-amber-700">
-                      Noter le passager
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {!p.reportedByDriver && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      close();
-                      router.push({
-                        pathname: "/(stack)/report-passenger",
-                        params: {
-                          routeId: t.id,
-                          passengerId: p.userId!,
-                          passengerName: p.name,
-                          from: t.from,
-                          to: t.to,
-                          mode: "report",
-                        },
-                      } as never);
-                    }}
-                    className="flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-500/10"
-                  >
-                    <MaterialCommunityIcons
-                      name="flag-outline"
-                      size={16}
-                      color="#dc2626"
-                    />
-                    <Text className="text-xs font-semibold text-red-600">
-                      Signaler le passager
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
         </View>
       )}
     </View>

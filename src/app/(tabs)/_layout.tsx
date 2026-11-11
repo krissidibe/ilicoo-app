@@ -1,3 +1,4 @@
+import { DriverEndTripConfirmModal } from "@/src/components/driver/DriverEndTripConfirmModal";
 import { DriverTripGateOverlay } from "@/src/components/driver/DriverTripGateOverlay";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
@@ -56,6 +57,7 @@ const _layout = () => {
         />
       </Tabs>
       <DriverTripGateOverlay />
+      <DriverEndTripConfirmModal />
     </>
   );
 };

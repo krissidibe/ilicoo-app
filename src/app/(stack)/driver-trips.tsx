@@ -9,10 +9,13 @@ import { mapRouteToMyPublishedTrip } from "@/src/lib/mappers";
 import {
   compareDepartureAsc,
   compareDepartureDesc,
+  formatTimeFr,
+  getRouteArrivalAt,
+  isArrivalDue,
 } from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { queryKeys } from "@/src/services/queryKeys";
-import { getMyRoutes } from "@/src/services/route.service";
+import { getMyRoutes, updateRouteStatus } from "@/src/services/route.service";
 import { updateRoutePassengerStatus } from "@/src/services/routePassenger.service";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -21,6 +24,7 @@ import { router } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   TouchableOpacity,
   View,
@@ -61,7 +65,7 @@ const statusConfig = (
 
 const DriverTripsScreen = () => {
   const [activeTab, setActiveTab] = useState<TripTab>("Avenir");
-  const { open } = useBottomSheetStore();
+  const { open, close } = useBottomSheetStore();
   const queryClient = useQueryClient();
 
   const { data: routesData, isLoading } = useQuery({
@@ -111,6 +115,73 @@ const DriverTripsScreen = () => {
     [updateStatusMutation],
   );
 
+  const updateRouteStatusMutation = useMutation({
+    mutationFn: ({
+      routeId,
+      status,
+    }: {
+      routeId: string;
+      status: "ACCEPTED" | "COMPLETED" | "CANCELLED";
+    }) => updateRouteStatus(routeId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.routes.mine });
+      queryClient.invalidateQueries({ queryKey: ["routes", "stats"] });
+      close();
+    },
+    onError: (e) => {
+      Alert.alert(
+        "Erreur",
+        e instanceof Error ? e.message : "Une erreur est survenue",
+      );
+    },
+  });
+
+  const handleStartTrip = useCallback(
+    (tripId: string): void => {
+      updateRouteStatusMutation.mutate(
+        { routeId: tripId, status: "ACCEPTED" },
+        {
+          onSuccess: () => {
+            router.push({
+              pathname: "/(stack)/active-trip",
+              params: { routeId: tripId },
+            } as any);
+          },
+        },
+      );
+    },
+    [updateRouteStatusMutation],
+  );
+
+  const handleCompleteTrip = useCallback(
+    (tripId: string): void => {
+      const trip = allTrips.find((t) => t.id === tripId);
+      if (
+        trip?.departureAt &&
+        !isArrivalDue(trip.departureAt, trip.durationMin ?? 0)
+      ) {
+        const arrivalAt = getRouteArrivalAt(
+          trip.departureAt,
+          trip.durationMin ?? 0,
+        );
+        Alert.alert(
+          "Trop tôt",
+          `Le trajet ne peut être terminé qu'à partir de ${arrivalAt ? formatTimeFr(arrivalAt) : "—"} (heure d'arrivée selon Maps).`,
+        );
+        return;
+      }
+      updateRouteStatusMutation.mutate({ routeId: tripId, status: "COMPLETED" });
+    },
+    [allTrips, updateRouteStatusMutation],
+  );
+
+  const handleCancelTrip = useCallback(
+    (tripId: string): void => {
+      updateRouteStatusMutation.mutate({ routeId: tripId, status: "CANCELLED" });
+    },
+    [updateRouteStatusMutation],
+  );
+
   const { openPassengerMapSheet, openTripMapSheet, callPassenger } =
     useTripMapSheets({
       onAcceptPassenger: handleAcceptPassenger,
@@ -123,14 +194,13 @@ const DriverTripsScreen = () => {
         tripId={trip.id}
         onAccept={handleAcceptPassenger}
         onReject={handleRejectPassenger}
-        onStartTrip={() => {}}
-        onCompleteTrip={() => {}}
-        onCancelTrip={() => {}}
+        onStartTrip={handleStartTrip}
+        onCompleteTrip={handleCompleteTrip}
+        onCancelTrip={handleCancelTrip}
         onOpenPassengerMap={openPassengerMapSheet}
         onOpenTripMap={openTripMapSheet}
         onCallPassenger={callPassenger}
-        isRouteStatusPending={false}
-        hideRouteActions
+        isRouteStatusPending={updateRouteStatusMutation.isPending}
       />,
       ["72%"],
     );
