@@ -125,7 +125,10 @@ const NotificationItem = ({
   const cfg = typeConfig[notif.type] ?? typeConfig.SYSTEM;
 
   return (
-    <Animated.View entering={FadeInRight.delay(index * 60).duration(350)}>
+    // Délai plafonné : sinon les éléments bas de liste « arrivent » plusieurs secondes après.
+    <Animated.View
+      entering={FadeInRight.delay(Math.min(index, 8) * 50).duration(300)}
+    >
       <TouchableOpacity
         activeOpacity={0.7}
         onPress={onPress}
@@ -208,8 +211,21 @@ const NotificationItem = ({
 const NotificationsScreen = () => {
   const queryClient = useQueryClient();
   const { open, close } = useBottomSheetStore();
-  const { data, isLoading, refetch, isRefetching } =
-    useQuery(getNotifications());
+  const { data, isLoading, refetch } = useQuery(getNotifications());
+  /**
+   * Spinner uniquement pour un pull-to-refresh manuel : la même requête est
+   * rafraîchie toutes les 5 s par l'accueil, et `isRefetching` faisait
+   * apparaître / disparaître le spinner en boucle (l'écran « bougeait tout seul »).
+   */
+  const [isPullRefreshing, setIsPullRefreshing] = React.useState(false);
+  const onPullRefresh = React.useCallback(async () => {
+    setIsPullRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsPullRefreshing(false);
+    }
+  }, [refetch]);
 
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
@@ -397,7 +413,8 @@ const NotificationsScreen = () => {
           </Button>
         </View>
       </View>,
-      ["55%"],
+      // [] = hauteur adaptée au contenu (plafonnée à la taille de l'écran)
+      [],
     );
   };
 
@@ -411,8 +428,8 @@ const NotificationsScreen = () => {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching && !isLoading}
-            onRefresh={() => refetch()}
+            refreshing={isPullRefreshing}
+            onRefresh={() => void onPullRefresh()}
             tintColor="#6366f1"
           />
         }

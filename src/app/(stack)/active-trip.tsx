@@ -11,6 +11,7 @@ import type {
   MyPublishedTrip,
   PassengerRequest,
 } from "@/src/data/myPublishedTrips";
+import { formatDepartureLabel } from "@/src/lib/departureDisplay";
 import { mapRouteToMyPublishedTrip } from "@/src/lib/mappers";
 import {
   formatTimeFr,
@@ -35,6 +36,7 @@ import {
   Alert,
   BackHandler,
   Linking,
+  Modal,
   ScrollView,
   TouchableOpacity,
   View,
@@ -67,6 +69,7 @@ const ActiveTripScreen = () => {
   } | null>(null);
   const [selectedPassenger, setSelectedPassenger] =
     useState<PassengerRequest | null>(null);
+  const [tooEarlyPopupVisible, setTooEarlyPopupVisible] = useState(false);
 
   const { data: routesData, isLoading: isLoadingRoutes } = useQuery({
     ...getMyRoutes(),
@@ -242,11 +245,8 @@ const ActiveTripScreen = () => {
       trip.departureAt &&
       !isArrivalDue(trip.departureAt, durationMin)
     ) {
-      const arrivalAt = getRouteArrivalAt(trip.departureAt, durationMin);
-      Alert.alert(
-        "Trop tôt",
-        `Le trajet vient d'être démarré. Il ne peut être terminé qu'à partir de ${arrivalAt ? formatTimeFr(arrivalAt) : "—"} (heure d'arrivée selon Maps).`,
-      );
+      // Trop tôt : pop-up « Trajet en cours » au-dessus de la carte
+      setTooEarlyPopupVisible(true);
       return;
     }
     completeTripMutation.mutate();
@@ -299,6 +299,11 @@ const ActiveTripScreen = () => {
   const acceptedPassengers = trip.passengers.filter(
     (p) => p.status === "ACCEPTED",
   );
+
+  const arrivalAt = trip.departureAt
+    ? getRouteArrivalAt(trip.departureAt, trip.durationMin ?? 0)
+    : null;
+  const arrivalLabel = arrivalAt ? formatTimeFr(arrivalAt) : "—";
 
   const initialRegionFallback =
     coordinatesForFit.length > 0
@@ -502,11 +507,7 @@ const ActiveTripScreen = () => {
             className="mb-10 w-full rounded-xl bg-primary"
             onPress={handleComplete}
             disabled={
-              completeTripMutation.isPending ||
-              cancelTripMutation.isPending ||
-              (trip.departureAt
-                ? !isArrivalDue(trip.departureAt, trip.durationMin ?? 0)
-                : false)
+              completeTripMutation.isPending || cancelTripMutation.isPending
             }
           >
             <View className="flex-row gap-2 items-center">
@@ -547,6 +548,51 @@ const ActiveTripScreen = () => {
           )}
         </View>
       </View>
+
+      <Modal
+        visible={tooEarlyPopupVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTooEarlyPopupVisible(false)}
+      >
+        <View className="flex-1 justify-center items-center px-6 bg-black/60">
+          <View className="p-6 w-full max-w-md bg-white rounded-3xl">
+            <View className="items-center mb-4">
+              <MaterialCommunityIcons
+                name="flag-checkered"
+                size={48}
+                color="#6366f1"
+              />
+            </View>
+            <Text className="mb-2 text-lg font-bold text-center text-foreground">
+              Trajet en cours
+            </Text>
+            <Text className="mb-1 text-sm text-center text-muted-foreground">
+              {trip.from} → {trip.to}
+            </Text>
+            {trip.departureAt ? (
+              <Text className="mb-6 text-sm text-center text-muted-foreground">
+                Départ : {formatDepartureLabel(trip.departureAt)}
+              </Text>
+            ) : null}
+            <Text className="mb-4 text-sm text-center text-muted-foreground">
+              Le trajet vient d&apos;être démarré. Il ne peut être terminé
+              qu&apos;à partir de {arrivalLabel} (heure d&apos;arrivée selon
+              Maps).
+            </Text>
+            <Button className="rounded-xl" disabled variant="secondary">
+              <Text>Terminer le trajet</Text>
+            </Button>
+            <Button
+              className="mt-3 rounded-xl"
+              variant="outline"
+              onPress={() => setTooEarlyPopupVisible(false)}
+            >
+              <Text>Voir le trajet en cours</Text>
+            </Button>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

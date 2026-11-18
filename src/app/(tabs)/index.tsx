@@ -4,7 +4,10 @@ import StarRating from "@/src/components/StarRating";
 import { VerifiedBadge } from "@/src/components/VerifiedBadge";
 import type { RecentTrip, TripStatus } from "@/src/data/recentTrips";
 import { mapRoutePassengerToRecentTrip } from "@/src/lib/mappers";
-import { compareDepartureAsc, formatVehicleDetails } from "@/src/lib/tripSchedule";
+import {
+  compareDepartureAsc,
+  formatVehicleDetails,
+} from "@/src/lib/tripSchedule";
 import { cn } from "@/src/lib/utils";
 import { getNotifications } from "@/src/services/notification.service";
 import { getPaymentsSummary } from "@/src/services/payment.service";
@@ -23,12 +26,19 @@ import {
 import { getUser as getUserProfile } from "@/src/services/user.service";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Burnt from "burnt";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 import { ChevronRightIcon, SearchIcon } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -93,12 +103,18 @@ const ACTIVE_TRIP_STATUSES: TripStatus[] = ["En attente", "En cours"];
 const HomeScreen = () => {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const queryClient = useQueryClient();
-  const { data: currentUser, refetch: refetchUser, isLoading: isLoadingUser } = useQuery({
+  const {
+    data: currentUser,
+    refetch: refetchUser,
+    isLoading: isLoadingUser,
+  } = useQuery({
     ...getUserProfile(),
     staleTime: 0,
   });
 
   const { open, close } = useBottomSheetStore();
+  /** Les Modal RN s'affichent au-dessus des écrans empilés : on les masque hors focus. */
+  const isFocused = useIsFocused();
   const { data: routePassengersData, isLoading: isLoadingTrips } = useQuery({
     ...getRoutePassengers(),
     refetchInterval: 5000,
@@ -169,42 +185,30 @@ const HomeScreen = () => {
     },
   });
 
-  const notDoneTripMutation = useMutation({
-    mutationFn: (routePassengerId: string) =>
-      updateRoutePassengerStatus(routePassengerId, "CANCELLED"),
-    onSuccess: async () => {
-      const trip = ratingPopupTripRef.current;
-      setRatingPopupTrip(null);
-      setRatingPopupConfirmed(false);
-      if (trip?.id) {
-        await markTripAsRated(String(trip.id));
-      }
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.routePassengers.all,
-      });
-      if (trip?.driver?.id) {
-        router.push({
-          pathname: "/(stack)/report",
-          params: {
-            routeId: String(trip.id),
-            driverId: trip.driver.id,
-            driverName: trip.driver.name,
-            from: trip.from,
-            to: trip.to,
-            mode: "non-effectue",
-          },
-        } as never);
-      }
-    },
-    onError: (e) => {
-      Alert.alert(
-        "Erreur",
-        e instanceof Error
-          ? e.message
-          : "Impossible de signaler le trajet non effectué",
-      );
-    },
-  });
+  /**
+   * « Non effectué » : on ouvre seulement l'écran de signalement. Rien n'est validé
+   * avant l'envoi (le backend passe la réservation en CANCELLED avec le signalement) :
+   * si l'utilisateur revient en arrière, la pop-up obligatoire réapparaît.
+   */
+  const handleTripNotDone = (trip: RecentTrip): void => {
+    if (!trip.driver?.id) {
+      Alert.alert("Erreur", "Impossible d'identifier le chauffeur.");
+      return;
+    }
+    setRatingPopupTrip(null);
+    setRatingPopupConfirmed(false);
+    router.push({
+      pathname: "/(stack)/report",
+      params: {
+        routeId: String(trip.id),
+        driverId: trip.driver.id,
+        driverName: trip.driver.name,
+        from: trip.from,
+        to: trip.to,
+        mode: "non-effectue",
+      },
+    } as never);
+  };
 
   const [ratingPopupTrip, setRatingPopupTrip] = useState<RecentTrip | null>(
     null,
@@ -218,9 +222,25 @@ const HomeScreen = () => {
   useEffect(() => {
     ratingPopupTripRef.current = ratingPopupTrip;
   }, [ratingPopupTrip]);
+  const ratingPopupConfirmedRef = useRef(false);
+  useEffect(() => {
+    ratingPopupConfirmedRef.current = ratingPopupConfirmed;
+  }, [ratingPopupConfirmed]);
+
+  /** Relance la recherche d'un trajet à confirmer à chaque retour sur l'accueil. */
+  const [popupCheckNonce, setPopupCheckNonce] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
+      // Au retour (ex. depuis « Signaler un problème » sans envoi), on repart de
+      // l'état serveur + local : la pop-up obligatoire réapparaît si besoin.
+      if (
+        !ratingPopupTripRef.current?.routePassengerId ||
+        !ratingPopupConfirmedRef.current
+      ) {
+        setRatingPopupTrip(null);
+      }
+      setPopupCheckNonce((n) => n + 1);
       queryClient.invalidateQueries({ queryKey: ["route-passengers"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       queryClient.invalidateQueries({ queryKey: ["payments", "summary"] });
@@ -293,7 +313,7 @@ const HomeScreen = () => {
       setRatingPopupSubmitted(false);
       setRatingPopupConfirmed(false);
     })();
-  }, [routePassengersData, currentUser?.id]);
+  }, [routePassengersData, currentUser?.id, popupCheckNonce]);
 
   const callDriver = async (phone: string): Promise<void> => {
     const phoneUrl = `tel:${phone}`;
@@ -462,9 +482,7 @@ const HomeScreen = () => {
             <View className="flex-row items-center px-3 py-2 mt-3 rounded-xl border border-gray-300 bg-gray-50">
               <MaterialCommunityIcons
                 name={
-                  trip.vehicleType === "MOTORCYCLE"
-                    ? "motorbike"
-                    : "car-side"
+                  trip.vehicleType === "MOTORCYCLE" ? "motorbike" : "car-side"
                 }
                 size={16}
                 color="#6366f1"
@@ -728,6 +746,7 @@ const HomeScreen = () => {
       {/* Popup optionnel: payer la commission — masquée tant que la notation trajet est affichée */}
       <CommissionPendingModal
         visible={
+          isFocused &&
           commissionPopupVisible &&
           firstPendingPayment != null &&
           ratingPopupTrip === null
@@ -743,7 +762,7 @@ const HomeScreen = () => {
 
       {/* Popup bloquant: confirmation + notation après trajet terminé (au-dessus de la commission) */}
       <Modal
-        visible={ratingPopupTrip !== null}
+        visible={ratingPopupTrip !== null && isFocused}
         transparent
         animationType="fade"
         onRequestClose={() => {}}
@@ -789,35 +808,29 @@ const HomeScreen = () => {
 
               {!ratingPopupConfirmed ? (
                 <>
-                  <Text className="mt-2 mb-4 text-sm text-center text-muted-foreground">
-                    Voulez-vous confirmer le trajet ?
-                  </Text>
+                  <View className="flex-row flex-wrap gap-1 justify-center items-center px-1 mt-2 mb-4">
+                    <Text className="text-sm text-center text-muted-foreground">
+                      Confirmez-vous le trajet avec
+                    </Text>
+                    <Text className="text-sm font-semibold text-foreground">
+                      {ratingPopupTrip?.driver?.name ?? "le chauffeur"}
+                    </Text>
+                    {ratingPopupTrip?.driver?.isVerified ? (
+                      <VerifiedBadge size={16} />
+                    ) : null}
+                    <Text className="text-sm text-muted-foreground">?</Text>
+                  </View>
                   <View className="flex-row w-full gap-2">
                     <TouchableOpacity
                       onPress={() => {
-                        const passengerId = ratingPopupTrip?.routePassengerId;
-                        if (!passengerId) {
-                          Alert.alert(
-                            "Erreur",
-                            "Impossible d'identifier ce trajet.",
-                          );
-                          return;
-                        }
-                        notDoneTripMutation.mutate(passengerId);
+                        if (ratingPopupTrip) handleTripNotDone(ratingPopupTrip);
                       }}
-                      disabled={
-                        confirmTripMutation.isPending ||
-                        notDoneTripMutation.isPending
-                      }
+                      disabled={confirmTripMutation.isPending}
                       className="flex-1 items-center px-3 py-2.5 rounded-xl border border-red-300 bg-red-50"
                     >
-                      {notDoneTripMutation.isPending ? (
-                        <ActivityIndicator size="small" color="#dc2626" />
-                      ) : (
-                        <Text className="text-sm font-semibold text-center text-red-600">
-                          Non effectué
-                        </Text>
-                      )}
+                      <Text className="text-sm font-semibold text-center text-red-600">
+                        Non effectué
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => {
@@ -831,10 +844,7 @@ const HomeScreen = () => {
                         }
                         confirmTripMutation.mutate(passengerId);
                       }}
-                      disabled={
-                        confirmTripMutation.isPending ||
-                        notDoneTripMutation.isPending
-                      }
+                      disabled={confirmTripMutation.isPending}
                       className="flex-1 items-center px-3 py-2.5 rounded-xl bg-emerald-600"
                     >
                       {confirmTripMutation.isPending ? (
