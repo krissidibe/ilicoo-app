@@ -50,7 +50,7 @@ const badgeTextVariants = cva('text-xs font-medium', {
 });
 
 type BadgeProps = ViewProps &
-  React.RefAttributes<View> & {
+  React.RefAttributes<React.ComponentRef<typeof View>> & {
     asChild?: boolean;
   } & VariantProps<typeof badgeVariants>;
 

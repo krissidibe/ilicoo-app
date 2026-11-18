@@ -44,7 +44,7 @@ const DOCUMENT_FIELDS: { name: DocumentField; label: string }[] = [
 ];
 
 const toFormValues = (
-  source?: Partial<PermitFormValues> | null,
+  source?: { [K in keyof PermitFormValues]?: string | null } | null,
 ): PermitFormValues => ({
   image: source?.image ?? "",
   identityPhoto: source?.identityPhoto ?? "",

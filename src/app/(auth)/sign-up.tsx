@@ -20,7 +20,7 @@ import { updateProfile } from "@/src/services/user.service";
 import { useAuthStore } from "@/src/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Label } from "@react-navigation/elements";
+import { Label } from "@/src/components/ui/label";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -668,7 +668,7 @@ const SignUp = () => {
                 onPress={
                   method === "google"
                     ? () => onGoogleProfileContinue()
-                    : handleSubmit(onSubmit)
+                    : () => void handleSubmit(onSubmit)()
                 }
                 size="lg"
                 className="mt-6 w-full"

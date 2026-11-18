@@ -123,6 +123,7 @@ export function useTripMapSheets(handlers: TripMapSheetHandlers) {
         )}
       </View>,
       ["50%"],
+      { scrollable: false },
     );
   };
 
@@ -343,6 +344,7 @@ export function useTripMapSheets(handlers: TripMapSheetHandlers) {
         </ScrollView>
       </View>,
       ["60%"],
+      { scrollable: false },
     );
   };
 

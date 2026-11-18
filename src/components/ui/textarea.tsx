@@ -7,7 +7,7 @@ function Textarea({
   numberOfLines = Platform.select({ web: 2, native: 8 }),
   placeholderClassName: _placeholderClassName,
   ...props
-}: TextInputProps & React.RefAttributes<TextInput> & {
+}: TextInputProps & React.RefAttributes<React.ComponentRef<typeof TextInput>> & {
   placeholderClassName?: string;
 }) {
   return (

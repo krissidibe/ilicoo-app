@@ -124,7 +124,7 @@ const UserReviewsScreen = () => {
                   {isFetchingNextPage ? "Chargement..." : "Voir plus d'avis"}
                 </Text>
               </TouchableOpacity>
-            ) : null
+            ) : undefined
           }
         />
       )}

@@ -26,7 +26,7 @@ const _layout = () => {
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons
                 name="view-dashboard"
-                color={color}
+                color={color as string}
                 size={size}
               />
             ),
@@ -37,7 +37,7 @@ const _layout = () => {
           options={{
             title: "Publier un trajet",
             tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="car" color={color} size={size} />
+              <MaterialCommunityIcons name="car" color={color as string} size={size} />
             ),
           }}
         />
@@ -49,7 +49,7 @@ const _layout = () => {
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons
                 name="account"
-                color={color}
+                color={color as string}
                 size={size}
               />
             ),

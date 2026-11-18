@@ -26,11 +26,10 @@ import {
 import { getUser as getUserProfile } from "@/src/services/user.service";
 import { useBottomSheetStore } from "@/src/store/bottomSheet.store";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useIsFocused } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Burnt from "burnt";
 import * as Haptics from "expo-haptics";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useIsFocused } from "expo-router";
 import { ChevronRightIcon, SearchIcon } from "lucide-react-native";
 import React, {
   useCallback,
@@ -375,6 +374,7 @@ const HomeScreen = () => {
         />
       </View>,
       ["70%"],
+      { scrollable: false },
     );
   };
 

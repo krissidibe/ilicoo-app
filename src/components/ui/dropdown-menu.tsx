@@ -277,7 +277,7 @@ function DropdownMenuSeparator({
   );
 }
 
-function DropdownMenuShortcut({ className, ...props }: TextProps & React.RefAttributes<Text>) {
+function DropdownMenuShortcut({ className, ...props }: TextProps & React.RefAttributes<React.ComponentRef<typeof Text>>) {
   return (
     <Text
       className={cn('text-muted-foreground ml-auto text-xs tracking-widest', className)}

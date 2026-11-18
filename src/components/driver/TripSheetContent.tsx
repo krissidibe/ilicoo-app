@@ -68,6 +68,8 @@ export type TripSheetContentProps = {
   isRouteStatusPending: boolean;
   /** Masque Démarrer / Terminer / Annuler (ex. fiche ouverte depuis la liste « Mes trajets ») */
   hideRouteActions?: boolean;
+  /** Rendu dans AppBottomSheet : le sheet gère déjà le scroll (évite un ScrollView imbriqué). */
+  inSheet?: boolean;
 };
 
 export const TripSheetContent = ({
@@ -82,6 +84,7 @@ export const TripSheetContent = ({
   onCallPassenger,
   isRouteStatusPending,
   hideRouteActions = false,
+  inSheet = false,
 }: TripSheetContentProps) => {
   const { close, expandedPassengerId, setExpandedPassengerId } =
     useBottomSheetStore();
@@ -379,7 +382,7 @@ export const TripSheetContent = ({
   );
 
   return (
-    <ScrollView className="px-5 pt-2 pb-7" showsVerticalScrollIndicator={false}>
+    <SheetContainer inSheet={inSheet}>
       <View className="flex-row justify-between items-center">
         <Text className="text-lg font-bold text-foreground">
           Détails du trajet
@@ -595,6 +598,21 @@ export const TripSheetContent = ({
           </View>
         </View>
       )}
-    </ScrollView>
+    </SheetContainer>
   );
 };
+
+const SheetContainer = ({
+  inSheet,
+  children,
+}: {
+  inSheet: boolean;
+  children: React.ReactNode;
+}) =>
+  inSheet ? (
+    <View className="px-5 pt-2 pb-7">{children}</View>
+  ) : (
+    <ScrollView className="px-5 pt-2 pb-7" showsVerticalScrollIndicator={false}>
+      {children}
+    </ScrollView>
+  );

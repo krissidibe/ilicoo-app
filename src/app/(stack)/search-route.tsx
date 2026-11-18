@@ -772,7 +772,7 @@ const SearchRouteScreen = () => {
           <MapView
             ref={mapRef}
             provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             initialRegion={mapRegion}
             onMapReady={onMapReady}
             showsUserLocation

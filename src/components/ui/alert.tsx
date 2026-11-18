@@ -13,7 +13,7 @@ function Alert({
   iconClassName,
   ...props
 }: ViewProps &
-  React.RefAttributes<View> & {
+  React.RefAttributes<React.ComponentRef<typeof View>> & {
     icon: LucideIcon;
     variant?: 'default' | 'destructive';
     iconClassName?: string;
@@ -47,7 +47,7 @@ function Alert({
 function AlertTitle({
   className,
   ...props
-}: React.ComponentProps<typeof Text> & React.RefAttributes<Text>) {
+}: React.ComponentProps<typeof Text> & React.RefAttributes<React.ComponentRef<typeof Text>>) {
   return (
     <Text
       className={cn('mb-1 ml-0.5 min-h-4 pl-6 font-medium leading-none tracking-tight', className)}
@@ -59,7 +59,7 @@ function AlertTitle({
 function AlertDescription({
   className,
   ...props
-}: React.ComponentProps<typeof Text> & React.RefAttributes<Text>) {
+}: React.ComponentProps<typeof Text> & React.RefAttributes<React.ComponentRef<typeof Text>>) {
   const textClass = React.useContext(TextClassContext);
   return (
     <Text

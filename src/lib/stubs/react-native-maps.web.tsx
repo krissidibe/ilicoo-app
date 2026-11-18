@@ -26,7 +26,7 @@ type MapViewProps = ViewProps & {
   onPress?: (event: MapPressEvent) => void;
 };
 
-const MapView = React.forwardRef<View, MapViewProps>(function MapViewStub(
+const MapView = React.forwardRef<React.ComponentRef<typeof View>, MapViewProps>(function MapViewStub(
   { children, style, ...rest },
   ref,
 ) {

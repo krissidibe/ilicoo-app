@@ -74,7 +74,7 @@ export const AnimatedSplashGate = ({ children }: Props) => {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1000,
     backgroundColor: "#ffffff",
     alignItems: "center",

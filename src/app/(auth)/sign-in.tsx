@@ -10,7 +10,7 @@ import { authClient } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
 import { useAuthStore } from "@/src/store/auth.store";
 import { Ionicons } from "@expo/vector-icons";
-import { Label } from "@react-navigation/elements";
+import { Label } from "@/src/components/ui/label";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";

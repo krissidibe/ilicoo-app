@@ -201,6 +201,7 @@ const DriverTripsScreen = () => {
         onOpenTripMap={openTripMapSheet}
         onCallPassenger={callPassenger}
         isRouteStatusPending={updateRouteStatusMutation.isPending}
+        inSheet
       />,
       ["72%"],
     );

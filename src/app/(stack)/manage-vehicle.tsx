@@ -759,7 +759,7 @@ const ManageVehicleScreen = () => {
           ) : (
             <Button
               className="flex-1 rounded-xl"
-              onPress={onSubmit}
+              onPress={() => void onSubmit()}
               disabled={
                 isSending || createMutation.isPending || updateMutation.isPending
               }

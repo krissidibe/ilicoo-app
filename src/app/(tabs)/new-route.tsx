@@ -331,6 +331,7 @@ const Setting = () => {
         onOpenTripMap={openTripMapSheet}
         onCallPassenger={callPassenger}
         isRouteStatusPending={updateRouteStatusMutation.isPending}
+        inSheet
       />,
       ["72%"],
     );

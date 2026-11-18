@@ -50,7 +50,7 @@ const PaymentScreen = () => {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching && !isLoading}
-            onRefresh={() => refetch()}
+            onRefresh={() => { void refetch(); }}
             tintColor="#6366f1"
           />
         }

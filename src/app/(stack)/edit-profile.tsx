@@ -18,7 +18,7 @@ import { cn } from "@/src/lib/utils";
 import { getUser, updateProfile, type UpdateProfilePayload } from "@/src/services/user.service";
 import { queryKeys } from "@/src/services/queryKeys";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Label } from "@react-navigation/elements";
+import { Label } from "@/src/components/ui/label";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -285,7 +285,7 @@ const EditProfileScreen = () => {
             </View>
 
             <Button
-              onPress={handleSubmit(onSubmit)}
+              onPress={() => void handleSubmit(onSubmit)()}
               size="lg"
               className="mt-6 w-full"
               disabled={!isDirty || mutation.isPending}

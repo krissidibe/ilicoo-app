@@ -231,6 +231,7 @@ const RecentTripsScreen = () => {
         />
       </View>,
       ["70%"],
+      { scrollable: false },
     );
   };
 
